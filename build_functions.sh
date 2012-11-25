@@ -799,6 +799,7 @@ then
 			tar_all extract "${output_dir}/${output_filename}.tar.${tar_format}" "${output_dir}/sd-card/root"
 			mv ${output_dir}/sd-card/root/uImage ${output_dir}/sd-card/boot/ 
 			cp ${output_dir}/tmp/${bootloader_script_name} ${output_dir}/sd-card/boot/
+			cp ${output_dir}/tmp/${bootloader_script_name} ${output_dir}/sd-card/boot/evb.bin
 		else
 			fn_my_echo "ERROR: File '${output_dir}/${output_filename}.tar.${tar_format}' doesn't seem to exist. Exiting now!"
 			regular_cleanup
