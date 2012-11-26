@@ -498,6 +498,19 @@ tester
 
 ' | adduser ${username}\" 2>>/post_deboostrap_errors.txt
 
+if [ "${mali_graphics_choice}" = "copy" ]
+then
+	echo "Downloading mali graphics driver and copying it into rootfs."
+elif [ "${mali_graphics_choice}" = "build" ]
+then
+	echo "Downloading sources for mali graphics and trying to compile the driver."
+elif [ "${mali_graphics_choice}" = "none" ]
+then
+	echo "No graphics driver and no graphical user interface wanted."
+else
+	echo "No valid option. Only copy|build|none are accepted. Doing nothing."
+fi
+
 ldconfig
 
 reboot 2>>/post_deboostrap_errors.txt
@@ -680,10 +693,10 @@ Type anything else and/or hit Enter to cancel!"
 		then
 			fn_my_echo "SD-card device set to '${device}', according to user input."
 			parted -s ${device} mklabel msdos
-			# first partition = root (rest of the drive size)
-			parted --align=opt -- ${device} unit MB mkpart primary ext4 1 -`expr ${size_boot_partition} + ${size_swap_partition}`
-			# second partition = boot (raw, size = ${size_boot_partition} )
+			# first partition = boot (raw, size = ${size_boot_partition} )
 			parted -s --align=opt -- ${device} unit MB mkpart primary fat16 -`expr ${size_boot_partition} + ${size_swap_partition}` -${size_swap_partition}
+			# second partition = root (rest of the drive size)
+			parted --align=opt -- ${device} unit MB mkpart primary ext4 1 -`expr ${size_boot_partition} + ${size_swap_partition}`
 			parted -s -- ${device} set 2 boot on
 			# last partition = swap (swap, size = ${size_swap_partition} )
 			parted -s --align=opt -- ${device} unit MB mkpart primary linux-swap -${size_swap_partition} -0
@@ -711,9 +724,9 @@ done
 
 if [ -e ${device}1 ] && [ -e ${device}2 ] && [ -e ${device}3 ]
 then
-	mkfs.ext4 ${device}1 # ext4 on root partition
+	mkfs.vfat ${device}1 # vfat on boot partition
+	mkfs.ext4 ${device}2 # ext4 on root partition
 	mkswap ${device}3 # swap
-	mkfs.vfat ${device}2 # vfat on boot partition
 else
 	fn_my_echo "ERROR: There should be 3 partitions on '${device}', but one or more seem to be missing.
 Exiting now!"
@@ -790,8 +803,9 @@ mkdir ${output_dir}/sd-card/root
 if [ "$?" = "0" ]
 then
 	fsck -fy ${device}1 # just to be sure
-	mount ${device}1 ${output_dir}/sd-card/root
-	mount ${device}2 ${output_dir}/sd-card/boot
+	fsck -fy ${device}2 # just to be sure
+	mount ${device}1 ${output_dir}/sd-card/boot # TODO: check for mount error for this one, too!
+	mount ${device}2 ${output_dir}/sd-card/root
 	if [ "$?" = "0" ]
 	then
 		if [ -e ${output_dir}/${output_filename}.tar.${tar_format} ]
@@ -807,7 +821,7 @@ then
 		fi
 		sleep 1
 	else
-		fn_my_echo "ERROR while trying to mount '${device}1' to '${output_dir}/sd-card'. Exiting now!"
+		fn_my_echo "ERROR while trying to mount '${device}2' to '${output_dir}/sd-card'. Exiting now!"
 		regular_cleanup
 		exit 35
 	fi
@@ -825,6 +839,7 @@ umount ${output_dir}/sd-card/boot
 sleep 3
 fn_my_echo "Running fsck to make sure the filesystem on the card is fine."
 fsck -fy ${device}1 # final check
+fsck -fy ${device}2 # final check
 if [ "$?" = "0" ]
 then
 	fn_my_echo "SD-card successfully created!
