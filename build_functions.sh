@@ -351,6 +351,15 @@ apt-get -y install ${base_packages_2} 2>>/deboostrap_stg2_errors.txt
 apt-get -y -d install ${additional_packages} 2>>/deboostrap_stg2_errors.txt
 #apt-get -d install ${additional_packages} 2>>/deboostrap_stg2_errors.txt
 
+if [ "${mali_graphics_choice}" = "copy" ] -o [ "${mali_graphics_choice}" = "build" ]
+then
+	apt-get -y -d install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
+	if [ "${mali_graphics_choice}" = "build" ]
+	then
+		apt-get -y -d install ${additional_dev_packages} 2>>/deboostrap_stg2_errors.txt
+	fi
+fi
+
 
 cat <<END > /etc/fstab 2>>/deboostrap_stg2_errors.txt
 # /etc/fstab: static file system information.
@@ -427,19 +436,6 @@ exit 0" > ${output_dir}/mnt_debootstrap/zram_setup.sh
 chmod +x ${output_dir}/mnt_debootstrap/zram_setup.sh
 fi
 
-
-echo "
-##########################################
-#/										\#
-#		 Welcome to A10-Debian			 #
-#			Created at the				 #
-#	University of Applied Sciences		 #
-#			   Augsburg					 #
-#\                                    	/#
-##########################################
-" >> ${output_dir}/mnt_debootstrap/etc/motd.tail
-
-
 date_cur=`date` # needed further down as a very important part to circumvent the PAM Day0 change password problem
 
 echo "#!/bin/sh
@@ -498,12 +494,76 @@ tester
 
 ' | adduser ${username}\" 2>>/post_deboostrap_errors.txt
 
-if [ "${mali_graphics_choice}" = "copy" ]
+if [ "${mali_graphics_choice}" = "copy" ] -o [ "${mali_graphics_choice}" = "build" ]
 then
-	echo "Downloading mali graphics driver and copying it into rootfs."
-elif [ "${mali_graphics_choice}" = "build" ]
-then
-	echo "Downloading sources for mali graphics and trying to compile the driver."
+	echo "Writing '/etc/modules' and '/etc/X11/xorg.conf' for mali graphics usage."
+	cat << END >> /etc/modules
+lcd
+hdmi
+ump
+disp
+mali
+mali_drm
+END
+
+	cat << END > /etc/X11/xorg.conf
+# X.Org X server configuration file for xfree86-video-mali   
+
+Section "Device"
+        Identifier "Mali FBDEV"
+        Driver  "mali"
+        Option  "fbdev"            "/dev/fb0"
+        Option  "DRI"             "false"
+        Option  "DRI2"             "false"
+        Option  "DRI2"             "false"
+        Option  "DRI2_PAGE_FLIP"   "false"
+        Option  "DRI2_WAIT_VSYNC"  "false"
+	Option "Debug" "true"
+EndSection
+
+Section "Module"
+	Disable "dri"
+	Disable "glx"
+EndSection
+
+Section "Screen"
+        Identifier      "Mali Screen"
+        Device          "Mali FBDEV"
+EndSection
+
+Section "DRI"
+        Mode 0666
+EndSection
+END	
+	
+	if [ "${mali_graphics_choice}" = "copy" ]
+	then
+		echo "Downloaded mali graphics driver. Driver should already work. Please check!"
+	elif [ "${mali_graphics_choice}" = "build" ]
+	then
+		echo "Downloaded sources for mali graphics. Trying to compile the driver, now."
+		mkdir /home/${username}/mali_2d_build
+		cd /home/${username}/mali_2d_build
+		git clone ${mali_xserver_2d_git}
+		git clone ${mali_2d_libump_git}
+		git clone ${mali_2d_misc_libs_git}
+		cd ./mali-libs
+		make VERSION=r3p0 ABI=armhf x11
+		make headers
+		cp -rf ./lib/r3p0/armhf/x11/*.so /usr/lib/
+		cd ../libump
+		mkdir /usr/include/ump
+		cp ./include/ump/* /usr/include/ump
+		make
+		cp ./libUMP.so /lib/libUMP.so
+		cd ../xf86-video-mali
+		autoreconf -vi
+		./configure --prefix=/usr --x-includes=/usr/include --x-libraries=/usr/lib
+		make
+		make install
+		cp ./xorg.conf /usr/share/X11/xorg.conf.d/99-mali400.conf
+		# dont forget to 'chmod 777 /dev/ump' and 'chmod 777 /dev/mali' on each boot, or create a rule for udev for this.
+	fi
 elif [ "${mali_graphics_choice}" = "none" ]
 then
 	echo "No graphics driver and no graphical user interface wanted."
@@ -517,6 +577,17 @@ reboot 2>>/post_deboostrap_errors.txt
 exit 0" > ${output_dir}/mnt_debootstrap/setup.sh
 
 chmod +x ${output_dir}/mnt_debootstrap/setup.sh
+
+if [ "${mali_graphics_choice}" = "copy" ] -o [ "${mali_graphics_choice}" = "build" ]
+then
+	get_n_check_file "${mali_opengl_bin_path}" "${mali_opengl_bin_name}" "mali_opengl_driver" "${output_dir}/tmp"
+	tar_all extract "${output_dir}/tmp/${mali_opengl_bin_name}" "${output_dir}/mnt_debootstrap"
+	if [ "${mali_graphics_choice}" = "copy" ]
+	then
+		get_n_check_file "${mali_2d_bin_path}" "${mali_2d_bin_name}" "mali_2d_driver" "${output_dir}/tmp"
+		tar_all extract "${output_dir}/tmp/${mali_2d_bin_name}" "${output_dir}/mnt_debootstrap"
+	fi	
+fi
 
 if [ "${i2c_hwclock}" = "yes" ]
 then

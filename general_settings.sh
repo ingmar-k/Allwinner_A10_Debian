@@ -21,9 +21,6 @@ bootloader_bin_name_1="sunxi-spl.bin" # bootloader binary: TODO
 bootloader_bin_name_2="u-boot.bin" # bootloader binary: TODO
 bootloader_script_name="script.bin" # Name of the bootscript for automatically booting from sd-card
 username="tester"  # Name of user for the graphical login
-mali_graphics_choice="build" # copy|build|none (copy=use a precompiled, downloaded driver | build= install dev-packages and sources and try to compile the driver | none= no driver and no graphical desktop)
-mali_graphics_opengl="yes" # Use or do not use binary OpenGL libraries
-
 
 
 ### These settings are for experienced users ###
@@ -52,13 +49,6 @@ else
 	output_dir="${output_dir_base}/build_`date +%s`" # Subdirectory for each build-run, ending with the unified Unix-Timestamp (seconds passed since Jan 01 1970)
 fi
 
-mali_graphics_bin_path=""
-mali_graphics_bin_name=""
-mali_graphics_source_path=""
-mali_graphics_source_name=""
-mali_graphics_opengl_path=""
-mali_graphics_opengl_name=""
-
 work_image_size_MB="6144" # size of the temporary image file, in which the installation process is carried out
 
 output_filename="debian_rootfs_Allwinner_A10_`date +%s`" # base name of the output file (compressed rootfs)
@@ -84,7 +74,22 @@ create_disk="no" # create a bootable SD-card after building the rootfs?
 
 additional_packages="file manpages man-db module-init-tools dhcp3-client netbase ifupdown iproute iputils-ping net-tools wget vim nano hdparm rsync bzip2 p7zip unrar unzip zip p7zip-full screen less usbutils psmisc strace info ethtool wireless-tools iw wpasupplicant python whois time ruby procps perl parted ftp gettext firmware-linux-free firmware-linux-nonfree firmware-realtek firmware-ralink firmware-linux firmware-brcm80211 firmware-atheros rcconf lrzsz libpam-modules" # IMPORTANT NOTE: All package names need to be seperated by a single space
 additional_desktop_packages="gnome"
-additional_dev_packages="build-essential autoconf automake make libtool xorg-dev xutils-dev libdrm-dev libdri2-1 libdri2-dev"
+additional_dev_packages="git subversion build-essential autoconf automake make libtool xorg-dev xutils-dev libdrm-dev libdri2-1 libdri2-dev"
+
+
+### ARM Mali400 graphics driver settings ###
+
+mali_graphics_choice="build" # copy|build|none (copy=use a precompiled, downloaded driver | build= install dev-packages and sources and try to compile the driver | none= no driver and no graphical desktop)
+mali_graphics_opengl="yes" # Use or do not use binary OpenGL libraries
+
+mali_2d_bin_path="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/xserver_mali"
+mali_2d_bin_name="xserver_mali.tar.bz2"
+mali_opengl_bin_path="http://dl.linux-sunxi.org/mali"
+mali_opengl_bin_name="lib-r3p1-01rel0.tar.gz"
+
+mali_xserver_2d_git="https://github.com/linux-sunxi/xf86-video-mali.git"
+mali_2d_libump_git="https://github.com/linux-sunxi/libump.git"
+mali_2d_misc_libs_git="https://github.com/linux-sunxi/mali-libs.git"
 
 
 ### Settings for compressed SWAP space in RAM ### 
