@@ -333,12 +333,12 @@ apt-get -y install ${base_packages_1} 2>>/deboostrap_stg2_errors.txt
 # APT::Install-Suggests \"0\";
 # END
 
-sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
-sed -i 's/# en_US.ISO-8859-1/en_US.ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
-sed -i 's/# en_US.ISO-8859-1 ISO-8859-1/en_US.ISO-8859-1 ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
 sed -i 's/# de_DE.ISO-8859-1/de_DE.ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
 sed -i 's/# de_DE.UTF-8/de_DE.UTF-8/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
-sed -i 's/# de_DE@euro ISO-8859-1/# de_DE@euro ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+sed -i 's/# de_DE.ISO-8859-15@euro/de_DE.ISO-8859-15@euro/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+sed -i 's/# en_US.ISO-8859-1/en_US.ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+sed -i 's/# en_US.ISO-8859-15/en_US.ISO-8859-15/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+sed -i 's/# en_US.UTF-8/en_US.UTF-8/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
 
 locale-gen 2>>/deboostrap_stg2_errors.txt
 
