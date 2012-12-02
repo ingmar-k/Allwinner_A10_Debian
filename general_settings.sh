@@ -20,19 +20,21 @@ bootloader_bin_path="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloade
 bootloader_bin_name_1="sunxi-spl.bin" # bootloader binary: TODO
 bootloader_bin_name_2="u-boot.bin" # bootloader binary: TODO
 bootloader_script_name="script.bin" # Name of the bootscript for automatically booting from sd-card
+root_password="root"
 username="tester"  # Name of user for the graphical login
+user_password="tester"
 
 
 ### These settings are for experienced users ###
 
-locale="de_DE.UTF-8" # initial language setting for console (alternatively for example 'en_US.UTF-8')'
+std_locale="en_US.UTF-8" # initial language setting for console (alternatively for example 'en_US.UTF-8')'
 
 debian_mirror_url="http://ftp.de.debian.org/debian/" # mirror for debian
 
 debian_target_version="wheezy" # The version of debian that you want to build (ATM, 'wheezy' and 'sid' are supported)
 
 
-qemu_kernel_pkg_path="/home/celemine1gig/Downloads/" # where to get the qemu kernel
+qemu_kernel_pkg_path="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels" # where to get the qemu kernel
 
 qemu_kernel_pkg_name="vmlinuz_Ubuntu_natty_armversatile.tar.bz2" # qemu kernel file name TODO
 
@@ -53,8 +55,8 @@ work_image_size_MB="6144" # size of the temporary image file, in which the insta
 
 output_filename="debian_rootfs_Allwinner_A10_`date +%s`" # base name of the output file (compressed rootfs)
 
-apt_prerequisites_debian="debootstrap binfmt-support qemu-user-static qemu qemu-kvm qemu-system parted" # packages needed for the build process on debian
-apt_prerequisites_ubuntu="debootstrap binfmt-support qemu qemu-system qemu-kvm qemu-kvm-extras-static parted" # packages needed for the build process on ubuntu
+apt_prerequisites_debian="git debootstrap binfmt-support qemu-user-static qemu qemu-kvm qemu-system parted" # packages needed for the build process on debian
+apt_prerequisites_ubuntu="git debootstrap binfmt-support qemu qemu-system qemu-kvm qemu-kvm-extras-static parted" # packages needed for the build process on ubuntu
 
 base_packages_1="apt-utils dialog locales udev"
 base_packages_2="dictionaries-common aspell"
@@ -72,9 +74,9 @@ create_disk="no" # create a bootable SD-card after building the rootfs?
 
 ### Additional Software ###
 
-additional_packages="file manpages man-db module-init-tools dhcp3-client netbase ifupdown iproute iputils-ping net-tools wget vim nano hdparm rsync bzip2 p7zip unrar unzip zip p7zip-full screen less usbutils psmisc strace info ethtool wireless-tools iw wpasupplicant python whois time ruby procps perl parted ftp gettext firmware-linux-free firmware-linux-nonfree firmware-realtek firmware-ralink firmware-linux firmware-brcm80211 firmware-atheros rcconf lrzsz libpam-modules" # IMPORTANT NOTE: All package names need to be seperated by a single space
-additional_desktop_packages="gnome"
-additional_dev_packages="git subversion build-essential autoconf automake make libtool xorg-dev xutils-dev libdrm-dev libdri2-1 libdri2-dev"
+additional_packages="uboot-envtools uboot-mkimage file manpages man-db module-init-tools dhcp3-client netbase ifupdown iproute iputils-ping net-tools wget vim nano hdparm rsync bzip2 p7zip unrar unzip zip p7zip-full screen less usbutils psmisc strace info ethtool wireless-tools iw wpasupplicant python whois time ruby procps perl parted ftp gettext firmware-linux-free firmware-linux-nonfree firmware-realtek firmware-ralink firmware-linux firmware-brcm80211 firmware-atheros rcconf lrzsz libpam-modules" # IMPORTANT NOTE: All package names need to be seperated by a single space
+additional_desktop_packages="task-xfce-desktop" # "task-lxde-desktop"  # "gnome"
+additional_dev_packages="git subversion build-essential autoconf automake make libtool xorg-dev xutils-dev libdrm-dev libxcb-dri2-0 libxcb-dri2-0-dev"
 
 
 ### ARM Mali400 graphics driver settings ###
@@ -85,7 +87,7 @@ mali_graphics_opengl="yes" # Use or do not use binary OpenGL libraries
 mali_2d_bin_path="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/xserver_mali"
 mali_2d_bin_name="xserver_mali.tar.bz2"
 mali_opengl_bin_path="http://dl.linux-sunxi.org/mali"
-mali_opengl_bin_name="lib-r3p1-01rel0.tar.gz"
+mali_opengl_bin_name="lib-r3p0-04rel0.tar.gz"
 
 mali_xserver_2d_git="https://github.com/linux-sunxi/xf86-video-mali.git"
 mali_2d_libump_git="https://github.com/linux-sunxi/libump.git"

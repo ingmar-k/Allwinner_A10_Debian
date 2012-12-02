@@ -153,7 +153,7 @@ If your host system is not Ubuntu 10.XX based, this could lead to errors. Please
 		fi
 	fi
 
-	if [ $1 = "qemu-user-static" ] && [ "${host_os}" = "Debian" ]
+	if [ $1 = "qemu-user-static" ]
 	then
 		sh -c "dpkg -l|grep "qemu-user-static"|grep "1."" >/dev/null
 		if [ $? = "0" ]
@@ -162,8 +162,8 @@ If your host system is not Ubuntu 10.XX based, this could lead to errors. Please
 		else
 			fn_my_echo "The installed version of package '${1}' is too old.
 You need to install a package with a version of at least 1.0.
-For example from the debian-testing repositiories.
-Link: 'http://packages.debian.org/search?keywords=qemu&searchon=names&suite=testing&section=all'
+For example from the debian-testing ('http://packages.debian.org/search?keywords=qemu&searchon=names&suite=testing&section=all')
+respectively the Ubuntu precise ('http://packages.ubuntu.com/search?keywords=qemu&searchon=names&suite=precise&section=all') repositiories.
 Exiting now!"
 			exit 15
 		fi
@@ -263,18 +263,7 @@ END
 
 apt-get update
 
-# mkdir -p /dev/bus/usb/001/
-# for k in {0..9}; do mknod /dev/bus/usb/001/0\${k} c 189 \${k}; done;
-# for l in {10..31}; do mknod /dev/bus/usb/001/0\${l} c 189 \${l}; done;
 mknod /dev/ttyS0 c 4 64	# for the serial console
-# mknod /dev/rtc0 c 254 0
-# mknod /dev/zram0 b 254 0
-# mknod -m 0666 /dev/mmcblk0p3 b 179 3	# SWAP
-# mknod /dev/sda b 8 0	# SCSI storage device
-# mknod /dev/sda1 b 8 1
-# mknod /dev/sda2 b 8 2
-# mknod /dev/sda3 b 8 3
-# ln -s /dev/rtc0 /dev/rtc
 
 cat <<END > /etc/network/interfaces
 auto lo eth0
@@ -311,7 +300,7 @@ fi
 
 exit 0
 END
-exit" 2>${output_dir}/chroot_1_log.txt
+exit" 2>${output_dir}/chroot_err_1_log.txt
 
 if [ "$?" = "0" ]
 then
@@ -323,43 +312,35 @@ fi
 mount devpts ${output_dir}/mnt_debootstrap/dev/pts -t devpts
 mount -t proc proc ${output_dir}/mnt_debootstrap/proc
 
-/usr/sbin/chroot ${output_dir}/mnt_debootstrap /bin/sh -c "
+/usr/sbin/chroot ${output_dir}/mnt_debootstrap /bin/bash -c "
 export LANG=C 2>>/deboostrap_stg2_errors.txt
 apt-get -y install ${base_packages_1} 2>>/deboostrap_stg2_errors.txt
-#apt-get install ${base_packages_1} 2>>/deboostrap_stg2_errors.txt
 
-# cat <<END > /etc/apt/apt.conf 2>>/deboostrap_stg2_errors.txt
-# APT::Install-Recommends \"0\";
-# APT::Install-Suggests \"0\";
-# END
-
-sed -i 's/# de_DE.ISO-8859-1/de_DE.ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+#sed -i 's/# en_US.ISO-8859-1/en_US.ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+#sed -i 's/# en_US.ISO-8859-1 ISO-8859-1/en_US.ISO-8859-1 ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+#sed -i 's/# de_DE.ISO-8859-1/de_DE.ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
 sed -i 's/# de_DE.UTF-8/de_DE.UTF-8/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
-sed -i 's/# de_DE.ISO-8859-15@euro/de_DE.ISO-8859-15@euro/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
-sed -i 's/# en_US.ISO-8859-1/en_US.ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
-sed -i 's/# en_US.ISO-8859-15/en_US.ISO-8859-15/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
-sed -i 's/# en_US.UTF-8/en_US.UTF-8/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+#sed -i 's/# de_DE@euro ISO-8859-1/# de_DE@euro ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
 
 locale-gen 2>>/deboostrap_stg2_errors.txt
 
-export LANG=${locale} 2>>/deboostrap_stg2_errors.txt	# language settings
-export LC_ALL=${locale} 2>>/deboostrap_stg2_errors.txt
-export LANGUAGE=${locale} 2>>/deboostrap_stg2_errors.txt
+export LANG=${std_locale} 2>>/deboostrap_stg2_errors.txt	# language settings
+export LC_ALL=${std_locale} 2>>/deboostrap_stg2_errors.txt
+export LANGUAGE=${std_locale} 2>>/deboostrap_stg2_errors.txt
 
 apt-get -y install ${base_packages_2} 2>>/deboostrap_stg2_errors.txt
 
 apt-get -y -d install ${additional_packages} 2>>/deboostrap_stg2_errors.txt
-#apt-get -d install ${additional_packages} 2>>/deboostrap_stg2_errors.txt
 
-if [ "${mali_graphics_choice}" = "copy" ] -o [ "${mali_graphics_choice}" = "build" ]
+if [ \"${mali_graphics_choice}\" = \"copy\" ]
 then
 	apt-get -y -d install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
-	if [ "${mali_graphics_choice}" = "build" ]
-	then
-		apt-get -y -d install ${additional_dev_packages} 2>>/deboostrap_stg2_errors.txt
-	fi
+elif [ \"${mali_graphics_choice}\" = \"build\" ]
+then
+	apt-get -y -d install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
+	apt-get -y -d install ${additional_dev_packages} 2>>/deboostrap_stg2_errors.txt
 fi
-
 
 cat <<END > /etc/fstab 2>>/deboostrap_stg2_errors.txt
 # /etc/fstab: static file system information.
@@ -372,7 +353,7 @@ END
 echo 'T0:2345:respawn:/sbin/getty ttyS0 115200 vt102' >> /etc/inittab 2>>/deboostrap_stg2_errors.txt	# enable serial consoles
 
 exit
-" 2>${output_dir}/chroot_2_log.txt
+" 2>${output_dir}/chroot_err_2_log.txt
 
 if [ "$?" = "0" ]
 then
@@ -438,25 +419,27 @@ fi
 
 date_cur=`date` # needed further down as a very important part to circumvent the PAM Day0 change password problem
 
-echo "#!/bin/sh
+echo "#!/bin/bash
 
 date -s \"${date_cur}\" 2>>/post_deboostrap_errors.txt	# set the system date to prevent PAM from exhibiting its nasty DAY0 forced password change
 
 apt-get install -y ${additional_packages} 2>>/post_debootstrap_apt_errors.txt
-#apt-get install ${additional_packages} 2>>/post_debootstrap_apt_errors.txt
+if [ \"${mali_graphics_choice}\" = \"copy\" ]
+then
+	apt-get -y install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
+elif [ \"${mali_graphics_choice}\" = \"build\" ]
+then
+	apt-get -y install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
+	apt-get -y install ${additional_dev_packages} 2>>/deboostrap_stg2_errors.txt
+fi
+
 apt-get clean
 dpkg -l > /installed_packages.txt
+ldconfig -v
 
+if [ \"${i2c_hwclock}\" = \"yes\" ]; then update-rc.d -f i2c_hwclock.sh start 02 S . stop 07 0 6 . 2>>/post_deboostrap_errors.txt;fi;
 
-if [ "${i2c_hwclock}" = "yes" ]
-then 
-	update-rc.d -f i2c_hwclock.sh start 02 S . stop 07 0 6 . 2>>/post_deboostrap_errors.txt
-fi
-
-if [ "${use_zram}" = "yes" ]
-then
-	echo vm.swappiness=${vm_swappiness} >> /etc/sysctl.conf
-fi
+if [ \"${use_zram}\" = \"yes\" ]; then echo vm.swappiness=${vm_swappiness} >> /etc/sysctl.conf; fi;
 
 if [ ! -z `grep setup.sh /etc/rc.local` ]
 then
@@ -478,15 +461,15 @@ exit 0
 END
 fi
 
-sh -c \"echo 'root
-root
+sh -c \"echo '${root_password}
+${root_password}
 ' | passwd root\" 2>>/post_deboostrap_errors.txt
 passwd -u root 2>>/post_deboostrap_errors.txt
 passwd -x -1 root 2>>/post_deboostrap_errors.txt
 passwd -w -1 root 2>>/post_deboostrap_errors.txt
 
-sh -c \"echo 'tester
-tester
+sh -c \"echo '${user_password}
+${user_password}
 
 
 
@@ -494,10 +477,11 @@ tester
 
 ' | adduser ${username}\" 2>>/post_deboostrap_errors.txt
 
-if [ "${mali_graphics_choice}" = "copy" ] -o [ "${mali_graphics_choice}" = "build" ]
+if [ \"${mali_graphics_choice}\" = \"copy\" -o \"${mali_graphics_choice}\" = \"build\" ]
 then
-	echo "Writing '/etc/modules' and '/etc/X11/xorg.conf' for mali graphics usage."
+	echo \"Writing '/etc/modules' and '/etc/X11/xorg.conf' for mali graphics usage.\"
 	cat << END >> /etc/modules
+8192cu
 lcd
 hdmi
 ump
@@ -509,84 +493,133 @@ END
 	cat << END > /etc/X11/xorg.conf
 # X.Org X server configuration file for xfree86-video-mali   
 
-Section "Device"
-        Identifier "Mali FBDEV"
-        Driver  "mali"
-        Option  "fbdev"            "/dev/fb0"
-        Option  "DRI"             "false"
-        Option  "DRI2"             "false"
-        Option  "DRI2"             "false"
-        Option  "DRI2_PAGE_FLIP"   "false"
-        Option  "DRI2_WAIT_VSYNC"  "false"
-	Option "Debug" "true"
+Section \"Device\"
+        Identifier \"Mali FBDEV\"
+        Driver  \"mali\"
+        Option  \"fbdev\"            \"/dev/fb0\"
+        Option  \"DRI\"             \"false\"
+        Option  \"DRI2\"             \"false\"
+        Option  \"DRI2\"             \"false\"
+        Option  \"DRI2_PAGE_FLIP\"   \"false\"
+        Option  \"DRI2_WAIT_VSYNC\"  \"false\"
+	Option \"Debug\" \"true\"
 EndSection
 
-Section "Module"
-	Disable "dri"
-	Disable "glx"
+Section \"Module\"
+	Disable \"dri\"
+	Disable \"glx\"
 EndSection
 
-Section "Screen"
-        Identifier      "Mali Screen"
-        Device          "Mali FBDEV"
+Section \"Monitor\"
+	Identifier \"Monitor0\"
 EndSection
 
-Section "DRI"
+Section \"Screen\"
+        Identifier      \"Mali Screen\"
+        Device          \"Mali FBDEV\"
+        Monitor		\"Monitor0\"
+		SubSection \"Display\"
+			Viewport 0 0
+			Depth	24
+			# Modes	\"1920x1200\"
+		EndSubSection
+EndSection
+
+Section \"DRI\"
         Mode 0666
 EndSection
-END	
+END
 	
-	if [ "${mali_graphics_choice}" = "copy" ]
+	if [ \"${mali_graphics_choice}\" = \"copy\" ]
 	then
-		echo "Downloaded mali graphics driver. Driver should already work. Please check!"
-	elif [ "${mali_graphics_choice}" = "build" ]
+		echo \"Downloaded mali graphics driver. Driver should already work. Please check!\"
+	elif [ \"${mali_graphics_choice}\" = \"build\" ]
 	then
-		echo "Downloaded sources for mali graphics. Trying to compile the driver, now."
-		mkdir /home/${username}/mali_2d_build
-		cd /home/${username}/mali_2d_build
-		git clone ${mali_xserver_2d_git}
-		git clone ${mali_2d_libump_git}
-		git clone ${mali_2d_misc_libs_git}
-		cd ./mali-libs
-		make VERSION=r3p0 ABI=armhf x11
-		make headers
-		cp -rf ./lib/r3p0/armhf/x11/*.so /usr/lib/
-		cd ../libump
-		mkdir /usr/include/ump
-		cp ./include/ump/* /usr/include/ump
-		make
-		cp ./libUMP.so /lib/libUMP.so
-		cd ../xf86-video-mali
-		autoreconf -vi
-		./configure --prefix=/usr --x-includes=/usr/include --x-libraries=/usr/lib
-		make
-		make install
-		cp ./xorg.conf /usr/share/X11/xorg.conf.d/99-mali400.conf
+		echo \"Downloaded sources for mali graphics. Trying to compile the driver, now.\"
+		cd /home/${username}/mali_2d_build && echo \"Changed into directory.\"
+		cd ./mali-libs && echo \"Changed into directory 'mali-libs'\"
+		make VERSION=r3p0 ABI=armhf x11 && echo \"Successfully set make variables.\"
+		make headers && echo \"Successfully ran 'make headers'.\"
+		cp -rf ./lib/r3p0/armhf/x11/*.so /usr/lib/ && echo \"Successfully copied the librariy .so files.\"
+		cd ../libump && echo \"Changed directory to 'libump'.\"
+		mkdir /usr/include/ump && echo \"Successfully created the '/usr/include/ump' directory.\"
+		cp ./include/ump/* /usr/include/ump/ && echo \"Successfully copied all ump files there.\"
+		make && echo \"Successfully ran the 'make' command.\"
+		cp ./libUMP.so /lib/libUMP.so && echo \"Successfully copied the created 'libUMP.so' to '/lib'.\"
+		cd ../xf86-video-mali && echo \"Changed directory to 'xf86-video-mali'.\"
+		autoreconf -vi && echo \"Successfully ran autoreconf.\"
+		./configure --prefix=/usr --x-includes=/usr/include --x-libraries=/usr/lib && echo \"Successfully ran the configuration for the xf86 driver.\"
+		make && echo \"Successfully ran the 'make' command for the xf86 driver.\"
+		make install && echo \"Successfully ran the 'make install' command for the xf86 driver.\"
+		#cp ./xorg.conf /usr/share/X11/xorg.conf.d/99-mali400.conf && echo \"Successfully copied the 'xorg.conf' for the xf86 driver.\"
 		# dont forget to 'chmod 777 /dev/ump' and 'chmod 777 /dev/mali' on each boot, or create a rule for udev for this.
-	fi
-elif [ "${mali_graphics_choice}" = "none" ]
+		cat <<END > /etc/rc.local 2>>/deboostrap_stg2_errors.txt
+#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will exit 0 on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
+
+if [ -e /zram_setup.sh ]
 then
-	echo "No graphics driver and no graphical user interface wanted."
-else
-	echo "No valid option. Only copy|build|none are accepted. Doing nothing."
+	/zram_setup.sh 2>/zram_setup_log.txt && rm /zram_setup.sh
 fi
 
-ldconfig
+/setup.sh 2>/setup_log.txt && rm /setup.sh
+
+if [ -e /dev/ump ]
+then
+	chmod 777 /dev/ump
+fi
+
+if [ -e /dev/mali ]
+then
+	chmod 777 /dev/mali
+fi
+
+exit 0
+END
+		
+	fi
+elif [ \"${mali_graphics_choice}\" = \"none\" ]
+then
+	echo \"No graphics driver and no graphical user interface wanted.\"
+else
+	echo \"No valid option. Only copy|build|none are accepted. Doing nothing.\"
+fi
+
+ldconfig -v
 
 reboot 2>>/post_deboostrap_errors.txt
 exit 0" > ${output_dir}/mnt_debootstrap/setup.sh
 
 chmod +x ${output_dir}/mnt_debootstrap/setup.sh
 
-if [ "${mali_graphics_choice}" = "copy" ] -o [ "${mali_graphics_choice}" = "build" ]
+if [ "${mali_graphics_opengl}" = "yes" ]
 then
 	get_n_check_file "${mali_opengl_bin_path}" "${mali_opengl_bin_name}" "mali_opengl_driver" "${output_dir}/tmp"
 	tar_all extract "${output_dir}/tmp/${mali_opengl_bin_name}" "${output_dir}/mnt_debootstrap"
-	if [ "${mali_graphics_choice}" = "copy" ]
-	then
-		get_n_check_file "${mali_2d_bin_path}" "${mali_2d_bin_name}" "mali_2d_driver" "${output_dir}/tmp"
-		tar_all extract "${output_dir}/tmp/${mali_2d_bin_name}" "${output_dir}/mnt_debootstrap"
-	fi	
+fi
+
+if [ "${mali_graphics_choice}" = "copy" ]
+then
+	get_n_check_file "${mali_2d_bin_path}" "${mali_2d_bin_name}" "mali_2d_driver" "${output_dir}/tmp"
+	tar_all extract "${output_dir}/tmp/${mali_2d_bin_name}" "${output_dir}/mnt_debootstrap"
+elif [ "${mali_graphics_choice}" = "build" ]
+then
+	mkdir -p ${output_dir}/mnt_debootstrap/home/${username}/mali_2d_build && fn_my_echo "Directory for graphics driver build successfully created."
+	cd ${output_dir}/mnt_debootstrap/home/${username}/mali_2d_build
+	git clone ${mali_xserver_2d_git} && fn_my_echo "Successfully cloned the git repo '${mali_xserver_2d_git}'."
+	git clone ${mali_2d_libump_git} && fn_my_echo "Successfully cloned the git repo '${mali_2d_libump_git}'."
+	git clone ${mali_2d_misc_libs_git} && fn_my_echo "Successfully cloned the git repo '${mali_2d_misc_libs_git}'."
+	cd ${output_dir}
 fi
 
 if [ "${i2c_hwclock}" = "yes" ]
@@ -635,7 +668,7 @@ else
 	fn_my_echo "No RTC (hardware clock) setup. Continueing..."
 fi
 
-sleep 1
+sleep 3
 
 umount_img all
 if [ "$?" = "0" ]
