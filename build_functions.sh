@@ -386,7 +386,10 @@ tar_all extract "${output_dir}/tmp/${qemu_kernel_pkg_name}" "${output_dir}/qemu-
 sleep 3
 tar_all extract "${output_dir}/tmp/${std_kernel_pkg_name}" "${output_dir}/mnt_debootstrap"
 
-cp -ar ${output_dir}/qemu-kernel/lib/ ${output_dir}/mnt_debootstrap  # copy the qemu kernel modules intot the rootfs
+if [ -d ${output_dir}/qemu-kernel/lib/ ]
+then
+	cp -ar ${output_dir}/qemu-kernel/lib/ ${output_dir}/mnt_debootstrap  # copy the qemu kernel modules intot the rootfs
+fi
 
 if [ "${use_zram}" = "yes" ]
 then
@@ -421,7 +424,7 @@ date_cur=`date` # needed further down as a very important part to circumvent the
 
 echo "#!/bin/bash
 
-date -s \"${date_cur}\" 2>>/post_deboostrap_errors.txt	# set the system date to prevent PAM from exhibiting its nasty DAY0 forced password change
+date -s \"${date_cur}\" 2>>/post_debootstrap_errors.txt	# set the system date to prevent PAM from exhibiting its nasty DAY0 forced password change
 
 apt-get install -y ${additional_packages} 2>>/post_debootstrap_apt_errors.txt
 if [ \"${mali_graphics_choice}\" = \"copy\" ]
@@ -437,13 +440,13 @@ apt-get clean
 dpkg -l > /installed_packages.txt
 ldconfig -v
 
-if [ \"${i2c_hwclock}\" = \"yes\" ]; then update-rc.d -f i2c_hwclock.sh start 02 S . stop 07 0 6 . 2>>/post_deboostrap_errors.txt;fi;
+if [ \"${i2c_hwclock}\" = \"yes\" ]; then update-rc.d -f i2c_hwclock.sh start 02 S . stop 07 0 6 . 2>>/post_debootstrap_errors.txt;fi;
 
 if [ \"${use_zram}\" = \"yes\" ]; then echo vm.swappiness=${vm_swappiness} >> /etc/sysctl.conf; fi;
 
 if [ ! -z `grep setup.sh /etc/rc.local` ]
 then
-	cat <<END > /etc/rc.local 2>>/post_deboostrap_errors.txt
+	cat <<END > /etc/rc.local 2>>/post_debootstrap_errors.txt
 #!/bin/sh -e
 #
 # rc.local
@@ -463,10 +466,10 @@ fi
 
 sh -c \"echo '${root_password}
 ${root_password}
-' | passwd root\" 2>>/post_deboostrap_errors.txt
-passwd -u root 2>>/post_deboostrap_errors.txt
-passwd -x -1 root 2>>/post_deboostrap_errors.txt
-passwd -w -1 root 2>>/post_deboostrap_errors.txt
+' | passwd root\" 2>>/post_debootstrap_errors.txt
+passwd -u root 2>>/post_debootstrap_errors.txt
+passwd -x -1 root 2>>/post_debootstrap_errors.txt
+passwd -w -1 root 2>>/post_debootstrap_errors.txt
 
 sh -c \"echo '${user_password}
 ${user_password}
@@ -475,7 +478,7 @@ ${user_password}
 
 
 
-' | adduser ${username}\" 2>>/post_deboostrap_errors.txt
+' | adduser ${username}\" 2>>/post_debootstrap_errors.txt
 
 if [ \"${mali_graphics_choice}\" = \"copy\" -o \"${mali_graphics_choice}\" = \"build\" ]
 then
@@ -491,8 +494,7 @@ mali_drm
 END
 
 	cat << END > /etc/X11/xorg.conf
-# X.Org X server configuration file for xfree86-video-mali   
-
+# X.Org X server configuration file for xfree86-video-mali
 Section \"Device\"
         Identifier \"Mali FBDEV\"
         Driver  \"mali\"
@@ -504,16 +506,13 @@ Section \"Device\"
         Option  \"DRI2_WAIT_VSYNC\"  \"false\"
 	Option \"Debug\" \"true\"
 EndSection
-
 Section \"Module\"
 	Disable \"dri\"
 	Disable \"glx\"
 EndSection
-
 Section \"Monitor\"
 	Identifier \"Monitor0\"
 EndSection
-
 Section \"Screen\"
         Identifier      \"Mali Screen\"
         Device          \"Mali FBDEV\"
@@ -524,35 +523,54 @@ Section \"Screen\"
 			# Modes	\"1920x1200\"
 		EndSubSection
 EndSection
-
 Section \"DRI\"
         Mode 0666
 EndSection
 END
-	
 	if [ \"${mali_graphics_choice}\" = \"copy\" ]
 	then
 		echo \"Downloaded mali graphics driver. Driver should already work. Please check!\"
 	elif [ \"${mali_graphics_choice}\" = \"build\" ]
 	then
 		echo \"Downloaded sources for mali graphics. Trying to compile the driver, now.\"
-		cd /home/${username}/mali_2d_build && echo \"Changed into directory.\"
-		cd ./mali-libs && echo \"Changed into directory 'mali-libs'\"
-		make VERSION=r3p0 ABI=armhf x11 && echo \"Successfully set make variables.\"
-		make headers && echo \"Successfully ran 'make headers'.\"
-		cp -rf ./lib/r3p0/armhf/x11/*.so /usr/lib/ && echo \"Successfully copied the librariy .so files.\"
-		cd ../libump && echo \"Changed directory to 'libump'.\"
-		mkdir /usr/include/ump && echo \"Successfully created the '/usr/include/ump' directory.\"
-		cp ./include/ump/* /usr/include/ump/ && echo \"Successfully copied all ump files there.\"
-		make && echo \"Successfully ran the 'make' command.\"
-		cp ./libUMP.so /lib/libUMP.so && echo \"Successfully copied the created 'libUMP.so' to '/lib'.\"
-		cd ../xf86-video-mali && echo \"Changed directory to 'xf86-video-mali'.\"
-		autoreconf -vi && echo \"Successfully ran autoreconf.\"
-		./configure --prefix=/usr --x-includes=/usr/include --x-libraries=/usr/lib && echo \"Successfully ran the configuration for the xf86 driver.\"
-		make && echo \"Successfully ran the 'make' command for the xf86 driver.\"
-		make install && echo \"Successfully ran the 'make install' command for the xf86 driver.\"
+		cd /home/${username}/mali_2d_build >> /mali_drv_compile.txt
+		if [ \"\${?}\" = \"0\" ]
+		then
+			echo \"Successfully changed into directory '/home/${username}/mali_2d_build'.\"
+			cd ./mali-libs >> /mali_drv_compile.txt
+			if [ \"\${?}\" = \"0\" ]
+			then
+				echo \"Successfully changed into directory '/home/${username}/mali_2d_build/mali-libs/'.\"
+				make VERSION=r3p0 ABI=armhf x11 >> /mali_drv_compile.txt && echo \"Successfully ran the command 'make VERSION=r3p0 ABI=armhf x11'.\"
+				make headers >> /mali_drv_compile.txt && echo \"Successfully ran 'make headers'.\"
+				cp -rf ./lib/r3p0/armhf/x11/*.so /usr/lib/ >> /mali_drv_compile.txt && echo \"Successfully copied the libraries from './lib/r3p0/armhf/x11/' to '/usr/lib/'.\"
+			fi
+			cd ../libump >> /mali_drv_compile.txt
+			if [ \"\${?}\" = \"0\" ]
+			then
+				echo \"Successfully changed into directory '/home/${username}/mali_2d_build/libump/'.\"
+				mkdir /usr/include/ump >> /mali_drv_compile.txt && echo \"Successfully created the '/usr/include/ump' directory.\"
+				cp ./include/ump/* /usr/include/ump/ >> /mali_drv_compile.txt && echo \"Successfully copied all ump files to '/usr/include/ump/'.\"
+				make >> /mali_drv_compile.txt && echo \"Successfully ran the 'make' (ump) command.\"
+				cp ./libUMP.so /lib/libUMP.so >> /mali_drv_compile.txt && echo \"Successfully copied the created 'libUMP.so' to '/lib'.\"
+			fi
+			cd ../xf86-video-mali >> /mali_drv_compile.txt
+			if [ \"\${?}\" = \"0\" ]
+			then
+				echo \"Changed directory to 'xf86-video-mali'.\"
+				autoreconf -vi >> /mali_drv_compile.txt && echo \"Successfully ran autoreconf.\"
+				./configure --prefix=/usr --x-includes=/usr/include --x-libraries=/usr/lib >> /mali_drv_compile.txt && echo \"Successfully ran the configuration for the xf86 driver.\"
+				make >> /mali_drv_compile.txt && echo \"Successfully ran the 'make' (xf86-video-mali) command.\"
+				make install >> /mali_drv_compile.txt && echo \"Successfully ran the 'make install' (xf86-video-mali) command.\"
+				echo \"XF86 drivers now completely compiled!\"
+			fi
+		else
+			echo \"ERROR: Couldn't change into directory '/home/${username}/mali_2d_build/'!\" >>/post_debootstrap_errors.txt
+		fi
+		
 		#cp ./xorg.conf /usr/share/X11/xorg.conf.d/99-mali400.conf && echo \"Successfully copied the 'xorg.conf' for the xf86 driver.\"
 		# dont forget to 'chmod 777 /dev/ump' and 'chmod 777 /dev/mali' on each boot, or create a rule for udev for this.
+		
 		cat <<END > /etc/rc.local 2>>/deboostrap_stg2_errors.txt
 #!/bin/sh -e
 #
@@ -584,9 +602,11 @@ then
 	chmod 777 /dev/mali
 fi
 
+echo 0 > /sys/class/graphics/fb0/blank # disable framebuffer blanking
+echo 0 > /sys/module/8192cu/parameters/rtw_power_mgnt # disable wlan power management
+
 exit 0
 END
-		
 	fi
 elif [ \"${mali_graphics_choice}\" = \"none\" ]
 then
@@ -597,7 +617,7 @@ fi
 
 ldconfig -v
 
-reboot 2>>/post_deboostrap_errors.txt
+reboot 2>>/post_debootstrap_errors.txt
 exit 0" > ${output_dir}/mnt_debootstrap/setup.sh
 
 chmod +x ${output_dir}/mnt_debootstrap/setup.sh
@@ -1104,10 +1124,11 @@ file_name=${2}
 short_description=${3}
 output_path=${4}
 
+
 if [ -z "${1}" ] || [ -z "${2}" ] || [ -z "${3}" ] || [ -z "${4}" ]
 then
 	fn_my_echo "ERROR: Function get_n_check_file needs 4 parameters.
-Parameter 1 is file_path, parameter 2 is file_name, parameter 3 is short_description and parameter 4 is the file output-path.
+Parameter 1 is file_path, parameter 2 is file_name, parameter 3 is short_description and parameter 4 is output-path.
 Faulty parameters passed were '${1}', '${2}', '${3}' and '${4}'.
 One or more of these appear to be empty. Exiting now!" 
 	regular_cleanup
@@ -1151,16 +1172,18 @@ else
 	then
 		if [ -e ${file_path}/${file_name} ]
 		then
-			fn_my_echo "Now copying local file '${file_path}/${file_name}' to '${output_path}'."
-			cp ${file_path}/${file_name} ${output_path}
-			if [ "$?" = "0" ]
-			then
-				fn_my_echo "File successfully copied."
-			else
-				fn_my_echo "ERROR while trying to copy the file! Exiting now."
-				regular_cleanup
-				exit 46
-			fi
+			#fn_my_echo "Now copying local file '${file_path}/${file_name}' to '${output_path}'."
+			fn_my_echo "File is a local file '${file_path}/${file_name}', so it stays where it is."
+			ln -s ${file_path}/${file_name} ${output_path}/${file_name} 
+			#cp ${file_path}/${file_name} ${output_path}
+			#if [ "$?" = "0" ]
+			#then
+			#	fn_my_echo "File successfully copied."
+			#else
+			#	fn_my_echo "ERROR while trying to copy the file! Exiting now."
+			#	regular_cleanup
+			#	exit 46
+			#fi
 		else
 			fn_my_echo "ERROR: File '${file_name}' does not seem to be a valid file in existing directory '${file_path}'.Exiting now!"
 			regular_cleanup

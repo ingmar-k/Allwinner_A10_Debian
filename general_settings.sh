@@ -51,7 +51,7 @@ else
 	output_dir="${output_dir_base}/build_`date +%s`" # Subdirectory for each build-run, ending with the unified Unix-Timestamp (seconds passed since Jan 01 1970)
 fi
 
-work_image_size_MB="6144" # size of the temporary image file, in which the installation process is carried out
+work_image_size_MB="5120" # size of the temporary image file, in which the installation process is carried out
 
 output_filename="debian_rootfs_Allwinner_A10_`date +%s`" # base name of the output file (compressed rootfs)
 
@@ -63,7 +63,7 @@ base_packages_2="dictionaries-common aspell"
 
 clean_tmp_files="no" # delete the temporary files, when the build process is done?
 
-create_disk="no" # create a bootable SD-card after building the rootfs?
+create_disk="yes" # create a bootable SD-card after building the rootfs?
 
 
 
@@ -75,7 +75,7 @@ create_disk="no" # create a bootable SD-card after building the rootfs?
 ### Additional Software ###
 
 additional_packages="uboot-envtools uboot-mkimage file manpages man-db module-init-tools dhcp3-client netbase ifupdown iproute iputils-ping net-tools wget vim nano hdparm rsync bzip2 p7zip unrar unzip zip p7zip-full screen less usbutils psmisc strace info ethtool wireless-tools iw wpasupplicant python whois time ruby procps perl parted ftp gettext firmware-linux-free firmware-linux-nonfree firmware-realtek firmware-ralink firmware-linux firmware-brcm80211 firmware-atheros rcconf lrzsz libpam-modules" # IMPORTANT NOTE: All package names need to be seperated by a single space
-additional_desktop_packages="task-xfce-desktop" # "task-lxde-desktop"  # "gnome"
+additional_desktop_packages="gnome e17" # "task-xfce-desktop"  # "gnome"
 additional_dev_packages="git subversion build-essential autoconf automake make libtool xorg-dev xutils-dev libdrm-dev libxcb-dri2-0 libxcb-dri2-0-dev"
 
 
