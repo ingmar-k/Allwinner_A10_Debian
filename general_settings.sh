@@ -16,16 +16,18 @@
 host_os="Debian" # Debian or Ubuntu (YOU NEED TO EDIT THIS!)
 nameserver_addr="192.168.2.1" # "141.82.48.1" (YOU NEED TO EDIT THIS!)
 output_dir_base="/home/celemine1gig/Allwinner_A10_debian_build" # where to put the files in general (YOU NEED TO EDIT THIS!) TODO: remove trailing /, if necessary
-bootloader_bin_path="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader" # where to get the bootloader (belongs to the setting below and DOES NOT NEED to be edited)
-bootloader_bin_name_1="sunxi-spl.bin" # bootloader binary: TODO
-bootloader_bin_name_2="u-boot.bin" # bootloader binary: TODO
-bootloader_script_name="script.bin" # Name of the bootscript for automatically booting from sd-card
+bootloader_bin_1="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/sunxi-spl.bin" # bootloader binary: TODO
+bootloader_bin_2="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/u-boot.bin" # bootloader binary: TODO
+bootloader_script="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/script.bin" # Name of the bootscript for automatically booting from sd-card
 root_password="root"
 username="tester"  # Name of user for the graphical login
 user_password="tester"
+use_cache="no"
 
 
 ### These settings are for experienced users ###
+
+base_sys_cache_tarball="debian_wheezy_minbase.tgz"
 
 std_locale="en_US.UTF-8" # initial language setting for console (alternatively for example 'en_US.UTF-8')'
 
@@ -34,13 +36,9 @@ debian_mirror_url="http://ftp.de.debian.org/debian/" # mirror for debian
 debian_target_version="wheezy" # The version of debian that you want to build (ATM, 'wheezy' and 'sid' are supported)
 
 
-qemu_kernel_pkg_path="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels" # where to get the qemu kernel
+qemu_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/vmlinuz_Ubuntu_natty_armversatile.tar.bz2" # qemu kernel file name TODO
 
-qemu_kernel_pkg_name="vmlinuz_Ubuntu_natty_armversatile.tar.bz2" # qemu kernel file name TODO
-
-std_kernel_pkg_path="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels" # where to get the standard kernel TODO
-
-std_kernel_pkg_name="kernel_A10.tar.bz2" # standard kernel file name TODO
+std_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/kernel_A10.tar.bz2" # standard kernel file name TODO
  
 tar_format="bz2" # bz2(=bzip2) or gz(=gzip)
 
@@ -63,7 +61,7 @@ base_packages_2="dictionaries-common aspell"
 
 clean_tmp_files="no" # delete the temporary files, when the build process is done?
 
-create_disk="yes" # create a bootable SD-card after building the rootfs?
+create_disk="no" # create a bootable SD-card after building the rootfs?
 
 
 
@@ -74,22 +72,21 @@ create_disk="yes" # create a bootable SD-card after building the rootfs?
 
 ### Additional Software ###
 
-additional_packages="uboot-envtools uboot-mkimage file manpages man-db module-init-tools dhcp3-client netbase ifupdown iproute iputils-ping net-tools wget vim nano hdparm rsync bzip2 p7zip unrar unzip zip p7zip-full screen less usbutils psmisc strace info ethtool wireless-tools iw wpasupplicant python whois time ruby procps perl parted ftp gettext firmware-linux-free firmware-linux-nonfree firmware-realtek firmware-ralink firmware-linux firmware-brcm80211 firmware-atheros rcconf lrzsz libpam-modules" # IMPORTANT NOTE: All package names need to be seperated by a single space
-additional_desktop_packages="gnome e17" # "task-xfce-desktop"  # "gnome"
+additional_packages="uboot-envtools uboot-mkimage file manpages man-db module-init-tools dhcp3-client netbase ifupdown iproute iputils-ping net-tools wget vim nano hdparm rsync bzip2 p7zip unrar unzip zip p7zip-full screen less usbutils psmisc strace info ethtool wireless-tools iw wpasupplicant python whois time ruby procps perl parted ftp gettext firmware-linux-free firmware-linux-nonfree firmware-realtek firmware-ralink firmware-linux firmware-brcm80211 firmware-atheros rcconf lrzsz libpam-modules util-linux" # IMPORTANT NOTE: All package names need to be seperated by a single space
+additional_desktop_packages="lightdm xauth xserver-xorg accountsservice upower tasksel dbus-x11 epdfview avahi-daemon cheese cups-pk-helper evolution gimp gstreamer0.10-alsa gstreamer0.10-ffmpeg gstreamer0.10-plugins-ugly gstreamer0.10-plugins-good gstreamer0.10-plugins-bad inkscape libgtk2-perl libreoffice libreoffice-gtk shotwell simple-scan tomboy transmission-gtk xdg-user-dirs-gtk xul-ext-adblock-plus iceweasel icedove iceowl-extension browser-plugin-gnash pcmanfm menu-xdg planner quodlibet synaptic system-config-printer vlc xsane mythes-en-us hyphen-en-us hunspell-en-us leafpad shed nedit editra fotoxx xterm eterm e17" # "task-xfce-desktop"  # "gnome"
 additional_dev_packages="git subversion build-essential autoconf automake make libtool xorg-dev xutils-dev libdrm-dev libxcb-dri2-0 libxcb-dri2-0-dev"
 
 
 ### ARM Mali400 graphics driver settings ###
 
 mali_graphics_choice="build" # copy|build|none (copy=use a precompiled, downloaded driver | build= install dev-packages and sources and try to compile the driver | none= no driver and no graphical desktop)
-mali_graphics_opengl="yes" # Use or do not use binary OpenGL libraries
+mali_graphics_opengl="no" # Use or do not use binary OpenGL libraries
 
-mali_2d_bin_path="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/xserver_mali"
-mali_2d_bin_name="xserver_mali.tar.bz2"
-mali_opengl_bin_path="http://dl.linux-sunxi.org/mali"
-mali_opengl_bin_name="lib-r3p0-04rel0.tar.gz"
+mali_2d_bin="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/xserver_mali/xserver_mali.tar.bz2"
+mali_opengl_bin="http://dl.linux-sunxi.org/mali/lib-r3p0-04rel0.tar.gz"
 
 mali_xserver_2d_git="https://github.com/linux-sunxi/xf86-video-mali.git"
+mali_2d_libdri2_git="git://github.com/robclark/libdri2.git"
 mali_2d_libump_git="https://github.com/linux-sunxi/libump.git"
 mali_2d_misc_libs_git="https://github.com/linux-sunxi/mali-libs.git"
 
@@ -123,5 +120,4 @@ size_swap_partition="512"   # size of the swap partition, in MB (MegaByte)
 ##### "INSTALL ONLY" SETTINGS: #####
 ####################################
 
-default_rootfs_package_path="/home/celemine1gig/Allwinner_A10_debian_build/build_1353854402" # where to get the compressed rootfs archive TODO
-default_rootfs_package_name="debian_rootfs_Allwinner_A10_1353854402.tar.bz2" # filename of the rootfs-archive TODO
+default_rootfs_package="" # filename of the rootfs-archive TODO

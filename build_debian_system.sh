@@ -28,6 +28,22 @@ then
 	fi
 	regular_cleanup
 	
+elif [ "$1" = "--clean" ]
+then
+	if [ "$2" = "cache" ]
+	then
+		echo "Cleaning the cache directory, now!"
+		rm -rf ${output_dir_base}/cache/*
+	elif [ "$2" = "build" ]
+	then
+		echo "Cleaning the build directory/directories, now!"
+		rm -rf ${output_dir_base}/build_*
+	elif [ "$2" = "all" ]
+	then
+		echo "Cleaning both cache and build directories, now!"
+		rm -rf ${output_dir_base}/cache/*
+		rm -rf ${output_dir_base}/build_*
+	fi
 elif [ \( "$1" = "--build" -o "$1" = "-b" \) -a -z "$2" ]  # case of just wanting to build a compressed rootfs archive
 then
 	param_1="build"
@@ -61,13 +77,14 @@ Just creating a complete, fully bootable sd-card."
 	if [ "$2" = "default" ]
 	then
 		fn_my_echo "Using the default rootfs-package settings defined in 'general_settings.sh'."
-		rootfs_package_path=${default_rootfs_package_path}
-		rootfs_package_name=${default_rootfs_package_name}
+		#rootfs_package_path=${default_rootfs_package_path}
+		rootfs_package=${default_rootfs_package}
 	else 
-		rootfs_package_path=${2%/*}
-		rootfs_package_name=${2##*/}
+		#rootfs_package_path=${2%/*}
+		#rootfs_package_name=${2##*/}
+		rootfs_package=${2}
 	fi
-	get_n_check_file "${rootfs_package_path}" "${rootfs_package_name}" "rootfs_package" "${output_dir}"
+	get_n_check_file "${rootfs_package_name}" "rootfs_package" "${output_dir}"
 	if [ "${rootfs_package_name:(-8)}" = ".tar.bz2" ]
 	then
 		tar_format="bz2"

@@ -18,6 +18,12 @@
 
 prep_output()
 {
+	
+if [ ! -d ${output_dir_base}/cache ]
+then
+	mkdir -p ${output_dir_base}/cache
+fi
+
 mkdir -p ${output_dir} # main directory for the build process
 if [ "$?" = "0" ]
 then
@@ -226,14 +232,25 @@ fn_my_echo "Function 'create_n_mount_temp_image_file' DONE."
 do_debootstrap()
 {
 fn_my_echo "Running first stage of debootstrap now."
-debootstrap --verbose --arch armhf --variant=minbase --foreign ${debian_target_version} ${output_dir}/mnt_debootstrap ${debian_mirror_url}
-if [ "$?" = "0" ]
+
+if [ "${use_cache}" = "yes" ]
 then
-	fn_my_echo "Debootstrap 1st stage finished successfully."
+	if [ -d "${output_dir_base}/cache/" ]
+	then
+		if [ -e "${output_dir_base}/cache/${base_sys_cache_tarball}" ]
+		then
+			#debootstrap --verbose --arch armhf --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --foreign "${debian_target_version}" "${output_dir}/mnt_debootstrap"
+			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir}/mnt_debootstrap/" "http://ftp.de.debian.org/debian/"
+		else
+			debootstrap --foreign --make-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir_base}/cache/tmp/" "http://ftp.de.debian.org/debian/"
+			#debootstrap --verbose --arch armhf --variant=minbase --make-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --foreign "${debian_target_version}" "${output_dir_base}/cache/${base_sys_cache_tarball}" "${debian_mirror_url}"
+			sleep 3
+			#debootstrap --verbose --arch armhf --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --foreign "${debian_target_version}" "${output_dir}/mnt_debootstrap"
+			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir}/mnt_debootstrap/" "http://ftp.de.debian.org/debian/"
+		fi
+	fi
 else
-	fn_my_echo "ERROR while trying to run the first stage of debootstrap. Exiting now!"
-	regular_cleanup
-	exit 20
+	debootstrap --verbose --arch armhf --variant=minbase --foreign "${debian_target_version}" "${output_dir}/mnt_debootstrap" "${debian_mirror_url}"
 fi
 
 modprobe binfmt_misc
@@ -248,8 +265,10 @@ mount -t proc proc ${output_dir}/mnt_debootstrap/proc
 
 fn_my_echo "Entering chroot environment NOW!"
 
+apt_get_helper "write_script"
+
 fn_my_echo "Starting the second stage of debootstrap now."
-/usr/sbin/chroot ${output_dir}/mnt_debootstrap /bin/bash -c "
+echo "#!/bin/bash
 /debootstrap/debootstrap --second-stage 2>>/deboostrap_stg2_errors.txt
 cd /root 2>>/deboostrap_stg2_errors.txt
 cat <<END > /etc/apt/sources.list 2>>/deboostrap_stg2_errors.txt
@@ -293,14 +312,17 @@ cat <<END > /etc/rc.local 2>>/deboostrap_stg2_errors.txt
 
 if [ -e /zram_setup.sh ]
 then
-	/zram_setup.sh 2>/zram_setup_log.txt && rm /zram_setup.sh
+	/zram_setup.sh 2>>/zram_setup_log.txt && rm /zram_setup.sh
 fi
 
-/setup.sh 2>/setup_log.txt && rm /setup.sh
+/post_debootstrap_setup.sh 2>>/setup_log.txt && rm /post_debootstrap_setup.sh
 
 exit 0
 END
-exit" 2>${output_dir}/chroot_err_1_log.txt
+rm /debootstrap_pt1.sh
+exit" > ${output_dir}/mnt_debootstrap/debootstrap_pt1.sh
+chmod +x ${output_dir}/mnt_debootstrap/debootstrap_pt1.sh
+/usr/sbin/chroot ${output_dir}/mnt_debootstrap /bin/bash /debootstrap_pt1.sh
 
 if [ "$?" = "0" ]
 then
@@ -312,9 +334,11 @@ fi
 mount devpts ${output_dir}/mnt_debootstrap/dev/pts -t devpts
 mount -t proc proc ${output_dir}/mnt_debootstrap/proc
 
-/usr/sbin/chroot ${output_dir}/mnt_debootstrap /bin/bash -c "
+echo "#!/bin/bash
+source apt_helper.sh
 export LANG=C 2>>/deboostrap_stg2_errors.txt
-apt-get -y install ${base_packages_1} 2>>/deboostrap_stg2_errors.txt
+apt_get_helper \"install\" \"${base_packages_1}\" upd
+#apt-get -y install ${base_packages_1} 2>>/deboostrap_stg2_errors.txt
 
 sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
 #sed -i 's/# en_US.ISO-8859-1/en_US.ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
@@ -329,17 +353,22 @@ export LANG=${std_locale} 2>>/deboostrap_stg2_errors.txt	# language settings
 export LC_ALL=${std_locale} 2>>/deboostrap_stg2_errors.txt
 export LANGUAGE=${std_locale} 2>>/deboostrap_stg2_errors.txt
 
-apt-get -y install ${base_packages_2} 2>>/deboostrap_stg2_errors.txt
+apt_get_helper \"install\" \"${base_packages_2}\"
+#apt-get -y install ${base_packages_2} 2>>/deboostrap_stg2_errors.txt
 
-apt-get -y -d install ${additional_packages} 2>>/deboostrap_stg2_errors.txt
+apt_get_helper \"download\" \"${additional_packages}\"
+#apt-get -y -d install ${additional_packages} 2>>/deboostrap_stg2_errors.txt
 
 if [ \"${mali_graphics_choice}\" = \"copy\" ]
 then
-	apt-get -y -d install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
+	apt_get_helper \"download\" \"${additional_desktop_packages}\"
+	#apt-get -y -d install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
 elif [ \"${mali_graphics_choice}\" = \"build\" ]
 then
-	apt-get -y -d install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
-	apt-get -y -d install ${additional_dev_packages} 2>>/deboostrap_stg2_errors.txt
+	apt_get_helper \"download\" \"${additional_desktop_packages}\"
+	apt_get_helper \"download\" \"${additional_dev_packages}\"
+	#apt-get -y -d install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
+	#apt-get -y -d install ${additional_dev_packages} 2>>/deboostrap_stg2_errors.txt
 fi
 
 cat <<END > /etc/fstab 2>>/deboostrap_stg2_errors.txt
@@ -351,9 +380,10 @@ cat <<END > /etc/fstab 2>>/deboostrap_stg2_errors.txt
 END
 
 echo 'T0:2345:respawn:/sbin/getty ttyS0 115200 vt102' >> /etc/inittab 2>>/deboostrap_stg2_errors.txt	# enable serial consoles
-
-exit
-" 2>${output_dir}/chroot_err_2_log.txt
+rm /debootstrap_pt2.sh
+exit" > ${output_dir}/mnt_debootstrap/debootstrap_pt2.sh
+chmod +x ${output_dir}/mnt_debootstrap/debootstrap_pt2.sh
+/usr/sbin/chroot ${output_dir}/mnt_debootstrap /bin/bash /debootstrap_pt2.sh
 
 if [ "$?" = "0" ]
 then
@@ -378,13 +408,13 @@ fn_my_echo "Now starting the post-debootstrap configuration steps."
 
 mkdir -p ${output_dir}/qemu-kernel
 
-get_n_check_file "${std_kernel_pkg_path}" "${std_kernel_pkg_name}" "standard_kernel" "${output_dir}/tmp"
+get_n_check_file "${std_kernel_pkg}" "standard_kernel" "${output_dir}/tmp"
 
-get_n_check_file "${qemu_kernel_pkg_path}" "${qemu_kernel_pkg_name}" "qemu_kernel" "${output_dir}/tmp"
+get_n_check_file "${qemu_kernel_pkg}" "qemu_kernel" "${output_dir}/tmp"
 
-tar_all extract "${output_dir}/tmp/${qemu_kernel_pkg_name}" "${output_dir}/qemu-kernel"
+tar_all extract "${output_dir}/tmp/${qemu_kernel_pkg##*/}" "${output_dir}/qemu-kernel"
 sleep 3
-tar_all extract "${output_dir}/tmp/${std_kernel_pkg_name}" "${output_dir}/mnt_debootstrap"
+tar_all extract "${output_dir}/tmp/${std_kernel_pkg##*/}" "${output_dir}/mnt_debootstrap"
 
 if [ -d ${output_dir}/qemu-kernel/lib/ ]
 then
@@ -423,17 +453,21 @@ fi
 date_cur=`date` # needed further down as a very important part to circumvent the PAM Day0 change password problem
 
 echo "#!/bin/bash
-
+source apt_helper.sh
 date -s \"${date_cur}\" 2>>/post_debootstrap_errors.txt	# set the system date to prevent PAM from exhibiting its nasty DAY0 forced password change
 
-apt-get install -y ${additional_packages} 2>>/post_debootstrap_apt_errors.txt
+apt_get_helper \"install\" \"${additional_packages}\"
+#apt-get install -y ${additional_packages} 2>>/post_debootstrap_apt_errors.txt
 if [ \"${mali_graphics_choice}\" = \"copy\" ]
 then
-	apt-get -y install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
+	apt_get_helper \"install\" \"${additional_desktop_packages}\"
+	#apt-get -y install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
 elif [ \"${mali_graphics_choice}\" = \"build\" ]
 then
-	apt-get -y install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
-	apt-get -y install ${additional_dev_packages} 2>>/deboostrap_stg2_errors.txt
+	apt_get_helper \"install\" \"${additional_desktop_packages}\"
+	apt_get_helper \"install\" \"${additional_dev_packages}\"
+	#apt-get -y install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
+	#apt-get -y install ${additional_dev_packages} 2>>/deboostrap_stg2_errors.txt
 fi
 
 apt-get clean
@@ -492,7 +526,6 @@ disp
 mali
 mali_drm
 END
-
 	cat << END > /etc/X11/xorg.conf
 # X.Org X server configuration file for xfree86-video-mali
 Section \"Device\"
@@ -533,41 +566,54 @@ END
 	elif [ \"${mali_graphics_choice}\" = \"build\" ]
 	then
 		echo \"Downloaded sources for mali graphics. Trying to compile the driver, now.\"
-		cd /home/${username}/mali_2d_build >> /mali_drv_compile.txt
+		cd /root/mali_2d_build 2>>/mali_drv_compile.txt
 		if [ \"\${?}\" = \"0\" ]
 		then
-			echo \"Successfully changed into directory '/home/${username}/mali_2d_build'.\"
-			cd ./mali-libs >> /mali_drv_compile.txt
+			echo \"Successfully changed into directory '/root/mali_2d_build'.\"
+			cd /root/mali_2d_build/mali-libs 2>>/mali_drv_compile.txt
 			if [ \"\${?}\" = \"0\" ]
 			then
-				echo \"Successfully changed into directory '/home/${username}/mali_2d_build/mali-libs/'.\"
-				make VERSION=r3p0 ABI=armhf x11 >> /mali_drv_compile.txt && echo \"Successfully ran the command 'make VERSION=r3p0 ABI=armhf x11'.\"
-				make headers >> /mali_drv_compile.txt && echo \"Successfully ran 'make headers'.\"
-				cp -rf ./lib/r3p0/armhf/x11/*.so /usr/lib/ >> /mali_drv_compile.txt && echo \"Successfully copied the libraries from './lib/r3p0/armhf/x11/' to '/usr/lib/'.\"
+				echo \"Successfully changed into directory '/root/mali_2d_build/mali-libs/'.\"
+				make VERSION=r3p0 ABI=armhf x11 2>>/mali_drv_compile.txt && xserver_build_log=\"1\" && echo \"Successfully ran the command 'make VERSION=r3p0 ABI=armhf x11'.\"
+				make headers 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 2\" && echo \"Successfully ran 'make headers'.\"
+				cp -rf ./lib/r3p0/armhf/x11/*.so /usr/lib/ 2>>/mali_drv_compile.txt && echo \"Successfully copied the libraries from './lib/r3p0/armhf/x11/' to '/usr/lib/'.\"
 			fi
-			cd ../libump >> /mali_drv_compile.txt
+			cd /root/mali_2d_build/libdri2 2>>/mali_drv_compile.txt
 			if [ \"\${?}\" = \"0\" ]
 			then
-				echo \"Successfully changed into directory '/home/${username}/mali_2d_build/libump/'.\"
-				mkdir /usr/include/ump >> /mali_drv_compile.txt && echo \"Successfully created the '/usr/include/ump' directory.\"
-				cp ./include/ump/* /usr/include/ump/ >> /mali_drv_compile.txt && echo \"Successfully copied all ump files to '/usr/include/ump/'.\"
-				make >> /mali_drv_compile.txt && echo \"Successfully ran the 'make' (ump) command.\"
-				cp ./libUMP.so /lib/libUMP.so >> /mali_drv_compile.txt && echo \"Successfully copied the created 'libUMP.so' to '/lib'.\"
+				echo \"Successfully changed into directory '/root/mali_2d_build/libdri2/'.\"
+				./autogen.sh 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 3\" && echo \"Successfully ran the 'autogen.sh' (libdri2) command.\"
+				./configure --prefix=/usr --x-includes=/usr/include --x-libraries=/usr/lib 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 4\" && echo \"Successfully ran the configuration for libdri2.\"
+				make 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 5\" && echo \"Successfully ran the 'make' (libdri2) command.\"
+				make install 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 6\" && echo \"Successfully ran the 'make install' (libdri2) command.\"
 			fi
-			cd ../xf86-video-mali >> /mali_drv_compile.txt
+			cd /root/mali_2d_build/libump 2>>/mali_drv_compile.txt
+			if [ \"\${?}\" = \"0\" ]
+			then
+				echo \"Successfully changed into directory '/root/mali_2d_build/libump/'.\"
+				mkdir /usr/include/ump 2>>/mali_drv_compile.txt && echo \"Successfully created the '/usr/include/ump' directory.\"
+				cp -rf ./include/ump/* /usr/include/ump/ 2>>/mali_drv_compile.txt && echo \"Successfully copied all ump files to '/usr/include/ump/'.\"
+				make 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 7\" && echo \"Successfully ran the 'make' (ump) command.\"
+				cp -f ./libUMP.so /lib/libUMP.so 2>>/mali_drv_compile.txt && echo \"Successfully copied the created 'libUMP.so' to '/lib'.\"
+			fi
+			cd /root/mali_2d_build/xf86-video-mali 2>>/mali_drv_compile.txt
 			if [ \"\${?}\" = \"0\" ]
 			then
 				echo \"Changed directory to 'xf86-video-mali'.\"
-				autoreconf -vi >> /mali_drv_compile.txt && echo \"Successfully ran autoreconf.\"
-				./configure --prefix=/usr --x-includes=/usr/include --x-libraries=/usr/lib >> /mali_drv_compile.txt && echo \"Successfully ran the configuration for the xf86 driver.\"
-				make >> /mali_drv_compile.txt && echo \"Successfully ran the 'make' (xf86-video-mali) command.\"
-				make install >> /mali_drv_compile.txt && echo \"Successfully ran the 'make install' (xf86-video-mali) command.\"
-				echo \"XF86 drivers now completely compiled!\"
+				autoreconf -vi 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 8\" && echo \"Successfully ran autoreconf.\"
+				./configure --prefix=/usr --x-includes=/usr/include --x-libraries=/usr/lib 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 9\" && echo \"Successfully ran the configuration for the xf86 driver.\"
+				make 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 10\" && echo \"Successfully ran the 'make' (xf86-video-mali) command.\"
+				make install 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 11\" && echo \"Successfully ran the 'make install' (xf86-video-mali) command.\"
 			fi
 		else
-			echo \"ERROR: Couldn't change into directory '/home/${username}/mali_2d_build/'!\" >>/post_debootstrap_errors.txt
+			echo \"ERROR: Couldn't change into directory '/root/mali_2d_build/'!\" >>/post_debootstrap_errors.txt
 		fi
 		
+		if [ \"xserver_build_log\" = \"1 2 3 4 5 6 7 8 9 10 11\" ]
+		then
+			echo \"Xserver mali400 driver build process completed successfully!\"
+			echo \"Xserver mali400 driver build process completed successfully!\" >> /mali_drv_compile.txt
+		fi
 		#cp ./xorg.conf /usr/share/X11/xorg.conf.d/99-mali400.conf && echo \"Successfully copied the 'xorg.conf' for the xf86 driver.\"
 		# dont forget to 'chmod 777 /dev/ump' and 'chmod 777 /dev/mali' on each boot, or create a rule for udev for this.
 		
@@ -587,10 +633,10 @@ END
 
 if [ -e /zram_setup.sh ]
 then
-	/zram_setup.sh 2>/zram_setup_log.txt && rm /zram_setup.sh
+	/zram_setup.sh 2>>/zram_setup_log.txt && rm /zram_setup.sh
 fi
 
-/setup.sh 2>/setup_log.txt && rm /setup.sh
+/setup.sh 2>>/setup_log.txt && rm /setup.sh
 
 if [ -e /dev/ump ]
 then
@@ -618,28 +664,26 @@ fi
 ldconfig -v
 
 reboot 2>>/post_debootstrap_errors.txt
-exit 0" > ${output_dir}/mnt_debootstrap/setup.sh
-
-chmod +x ${output_dir}/mnt_debootstrap/setup.sh
+exit 0" > ${output_dir}/mnt_debootstrap/post_debootstrap_setup.sh
+chmod +x ${output_dir}/mnt_debootstrap/post_debootstrap_setup.sh
 
 if [ "${mali_graphics_opengl}" = "yes" ]
 then
-	get_n_check_file "${mali_opengl_bin_path}" "${mali_opengl_bin_name}" "mali_opengl_driver" "${output_dir}/tmp"
-	tar_all extract "${output_dir}/tmp/${mali_opengl_bin_name}" "${output_dir}/mnt_debootstrap"
+	get_n_check_file "${mali_opengl_bin}" "mali_opengl_driver" "${output_dir}/tmp"
+	tar_all extract "${output_dir}/tmp/${mali_opengl_bin##*/}" "${output_dir}/mnt_debootstrap"
 fi
 
 if [ "${mali_graphics_choice}" = "copy" ]
 then
-	get_n_check_file "${mali_2d_bin_path}" "${mali_2d_bin_name}" "mali_2d_driver" "${output_dir}/tmp"
-	tar_all extract "${output_dir}/tmp/${mali_2d_bin_name}" "${output_dir}/mnt_debootstrap"
+	get_n_check_file "${mali_2d_bin}" "mali_2d_driver" "${output_dir}/tmp"
+	tar_all extract "${output_dir}/tmp/${mali_2d_bin##*/}" "${output_dir}/mnt_debootstrap"
 elif [ "${mali_graphics_choice}" = "build" ]
 then
-	mkdir -p ${output_dir}/mnt_debootstrap/home/${username}/mali_2d_build && fn_my_echo "Directory for graphics driver build successfully created."
-	cd ${output_dir}/mnt_debootstrap/home/${username}/mali_2d_build
-	git clone ${mali_xserver_2d_git} && fn_my_echo "Successfully cloned the git repo '${mali_xserver_2d_git}'."
-	git clone ${mali_2d_libump_git} && fn_my_echo "Successfully cloned the git repo '${mali_2d_libump_git}'."
-	git clone ${mali_2d_misc_libs_git} && fn_my_echo "Successfully cloned the git repo '${mali_2d_misc_libs_git}'."
-	cd ${output_dir}
+	mkdir -p ${output_dir}/mnt_debootstrap/root/mali_2d_build && fn_my_echo "Directory for graphics driver build successfully created."
+	get_n_check_file "${mali_xserver_2d_git}" "xf86-video-mali" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
+	get_n_check_file "${mali_2d_libdri2_git}" "libdri2" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
+	get_n_check_file "${mali_2d_libump_git}" "libump" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
+	get_n_check_file "${mali_2d_misc_libs_git}" "mali-libs" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
 fi
 
 if [ "${i2c_hwclock}" = "yes" ]
@@ -870,9 +914,9 @@ finalize_disk()
 # Copy bootloader to the boot partition
 fn_my_echo "Getting the bootloader and trying to copy it to the boot partition, now!"
 
-get_n_check_file "${bootloader_bin_path}" "${bootloader_bin_name_1}" "bootloader_binary_1" "${output_dir}/tmp"
-get_n_check_file "${bootloader_bin_path}" "${bootloader_bin_name_2}" "bootloader_binary_2" "${output_dir}/tmp"
-get_n_check_file "${bootloader_bin_path}" "${bootloader_script_name}" "bootloader_script" "${output_dir}/tmp"
+get_n_check_file "${bootloader_bin_1}" "bootloader_binary_1" "${output_dir}/tmp"
+get_n_check_file "${bootloader_bin_2}" "bootloader_binary_2" "${output_dir}/tmp"
+get_n_check_file "${bootloader_script}" "bootloader_script" "${output_dir}/tmp"
 
 if [ -e ${device} ] &&  [ "${device:0:5}" = "/dev/" ]
 then
@@ -880,31 +924,31 @@ then
 	mount |grep ${device}
 	if [ ! "$?" = "0" ]
 	then
-		if [ -e "${output_dir}/tmp/${bootloader_bin_name_1}" ] # sunxi-spl.bin
+		if [ -e "${output_dir}/tmp/${bootloader_bin_1##*/}" ] # sunxi-spl.bin
 		then
-			dd if=${output_dir}/tmp/${bootloader_bin_name_1} of=${device} bs=1024 seek=8
+			dd if=${output_dir}/tmp/${bootloader_bin_1##*/} of=${device} bs=1024 seek=8
 			if [ "$?" = "0" ]
 			then
 				fn_my_echo "Bootloader part 1 successfully copied to SD-card ('${device}')!"
 			else
-				fn_my_echo "ERROR while trying to copy the bootloader part 1 '${bootloader_bin_path}/${bootloader_bin_name_1}' to the device '${device}2'."
+				fn_my_echo "ERROR while trying to copy the bootloader part 1 '${bootloader_bin_1}' to the device '${device}2'."
 			fi
 		else
-			fn_my_echo "ERROR! Bootloader binary '${bootloader_bin_name_1}' doesn't seem to exist in directory '${output_dir}/tmp/'.
+			fn_my_echo "ERROR! Bootloader binary '${bootloader_bin_1##*/}' doesn't seem to exist in directory '${output_dir}/tmp/'.
 			You won't be able to boot the card, without copying the file to the second partition."
 		fi
 
-		if [ -e "${output_dir}/tmp/${bootloader_bin_name_2}" ] # u-boot.bin
+		if [ -e "${output_dir}/tmp/${bootloader_bin_2##*/}" ] # u-boot.bin
 		then
-			dd if=${output_dir}/tmp/${bootloader_bin_name_2} of=${device} bs=1024 seek=32
+			dd if=${output_dir}/tmp/${bootloader_bin_2##*/} of=${device} bs=1024 seek=32
 			if [ "$?" = "0" ]
 			then
 				fn_my_echo "Bootloader part 2 successfully copied to SD-card ('${device}')!"
 			else
-				fn_my_echo "ERROR while trying to copy the bootloader part 2 '${bootloader_bin_path}/${bootloader_bin_name_2}' to the device '${device}2'."
+				fn_my_echo "ERROR while trying to copy the bootloader part 2 '${bootloader_bin_2}' to the device '${device}2'."
 			fi
 		else
-			fn_my_echo "ERROR! Bootloader binary '${bootloader_bin_name_2}' doesn't seem to exist in directory '${output_dir}/tmp/'.
+			fn_my_echo "ERROR! Bootloader binary '${bootloader_bin_2##*/}' doesn't seem to exist in directory '${output_dir}/tmp/'.
 			You won't be able to boot the card, without copying the file to the second partition."
 		fi
 	else
@@ -936,8 +980,8 @@ then
 		then 
 			tar_all extract "${output_dir}/${output_filename}.tar.${tar_format}" "${output_dir}/sd-card/root"
 			mv ${output_dir}/sd-card/root/uImage ${output_dir}/sd-card/boot/ 
-			cp ${output_dir}/tmp/${bootloader_script_name} ${output_dir}/sd-card/boot/
-			cp ${output_dir}/tmp/${bootloader_script_name} ${output_dir}/sd-card/boot/evb.bin
+			cp ${output_dir}/tmp/${bootloader_script##*/} ${output_dir}/sd-card/boot/
+			cp ${output_dir}/tmp/${bootloader_script##*/} ${output_dir}/sd-card/boot/evb.bin
 		else
 			fn_my_echo "ERROR: File '${output_dir}/${output_filename}.tar.${tar_format}' doesn't seem to exist. Exiting now!"
 			regular_cleanup
@@ -1040,6 +1084,7 @@ fi
 # Description: Helper function to completely or partially unmount the image file when and where needed
 umount_img()
 {
+cd ${output_dir}
 if [ "${1}" = "sys" ]
 then
 	mount | grep "${output_dir}" > /dev/null
@@ -1080,6 +1125,7 @@ then
 else
 	fn_my_echo "ERROR! Wrong parameter. Only 'sys' and 'all' allowed when calling 'umount_img'."
 fi
+cd ${output_dir}
 }
 
 
@@ -1116,49 +1162,63 @@ fi
 }
 
 
+
 get_n_check_file()
 {
+file_path=${1%/*}
+file_name=${1##*/}
+short_description=${2}
+output_path=${3}
 
-file_path=${1}
-file_name=${2}
-short_description=${3}
-output_path=${4}
-
-
-if [ -z "${1}" ] || [ -z "${2}" ] || [ -z "${3}" ] || [ -z "${4}" ]
+if [ -z "${1}" ] || [ -z "${2}" ] || [ -z "${3}" ]
 then
 	fn_my_echo "ERROR: Function get_n_check_file needs 4 parameters.
-Parameter 1 is file_path, parameter 2 is file_name, parameter 3 is short_description and parameter 4 is output-path.
-Faulty parameters passed were '${1}', '${2}', '${3}' and '${4}'.
+Parameter 1 is file_path/file_name, parameter 2 is short_description and parameter 3 is output-path.
+Faulty parameters passed were '${1}', '${2}' and '${3}'.
 One or more of these appear to be empty. Exiting now!" 
 	regular_cleanup
 	exit 42
 fi
 
-if [ "${file_path:0:4}" = "http" ] || [ "${file_path:0:3}" = "ftp" ]
+if [ "${file_path:0:7}" = "http://" ] || [ "${file_path:0:8}" = "https://" ] || [ "${file_path:0:6}" = "ftp://" ] || [ "${file_path:0:6}" = "git://" ] 
 then
-	fn_my_echo "Trying to download ${short_description} from address '${file_path}/${file_name}', now."
 	if [ -d ${output_path} ]
 	then
 		cd ${output_path}
-		wget -q --spider ${file_path}/${file_name}
-		if [ "$?" = "0" ]
+		if [ "${file_name:(-4):4}" = ".git" ]
 		then
-			wget -t 3 ${file_path}/${file_name}
+			fn_my_echo "Trying to clone repository ${short_description} from address '${file_path}/${file_name}', now."
+			git clone ${file_path}/${file_name}
 			if [ "$?" = "0" ]
-			then
-				fn_my_echo "'${short_description}' successfully downloaded from address '${file_path}/${file_name}'."
+				then
+					fn_my_echo "'${short_description}' repository successfully cloned from address '${file_path}/${file_name}'."
 			else
-				fn_my_echo "ERROR: File '${file_path}/${file_name}' could not be downloaded.
-	Exiting now!"
-			regular_cleanup
-			exit 43
+					fn_my_echo "ERROR: Repository '${file_path}/${file_name}' could not be cloned.
+		Exiting now!"
+				regular_cleanup
+				exit 42
 			fi
 		else
-			fn_my_echo "ERROR: '${file_path}/${file_name}' does not seem to be a valid internet address. Please check!
-	Exiting now!"
-			regular_cleanup
-			exit 44
+			fn_my_echo "Trying to download ${short_description} from address '${file_path}/${file_name}', now."
+			wget -q --spider ${file_path}/${file_name}
+			if [ "$?" = "0" ]
+			then
+				wget -t 3 ${file_path}/${file_name}
+				if [ "$?" = "0" ]
+				then
+					fn_my_echo "'${short_description}' successfully downloaded from address '${file_path}/${file_name}'."
+				else
+					fn_my_echo "ERROR: File '${file_path}/${file_name}' could not be downloaded.
+		Exiting now!"
+				regular_cleanup
+				exit 43
+				fi
+			else
+				fn_my_echo "ERROR: '${file_path}/${file_name}' does not seem to be a valid internet address. Please check!
+		Exiting now!"
+				regular_cleanup
+				exit 44
+			fi
 		fi
 	else
 		fn_my_echo "ERROR: Output directory '${output_path}' does not seem to exist. Please check!
@@ -1172,18 +1232,8 @@ else
 	then
 		if [ -e ${file_path}/${file_name} ]
 		then
-			#fn_my_echo "Now copying local file '${file_path}/${file_name}' to '${output_path}'."
 			fn_my_echo "File is a local file '${file_path}/${file_name}', so it stays where it is."
-			ln -s ${file_path}/${file_name} ${output_path}/${file_name} 
-			#cp ${file_path}/${file_name} ${output_path}
-			#if [ "$?" = "0" ]
-			#then
-			#	fn_my_echo "File successfully copied."
-			#else
-			#	fn_my_echo "ERROR while trying to copy the file! Exiting now."
-			#	regular_cleanup
-			#	exit 46
-			#fi
+			ln -s ${file_path}/${file_name} ${output_path}/${file_name}
 		else
 			fn_my_echo "ERROR: File '${file_name}' does not seem to be a valid file in existing directory '${file_path}'.Exiting now!"
 			regular_cleanup
@@ -1195,7 +1245,7 @@ else
 		exit 48
 	fi
 fi
-
+cd ${output_dir}
 }
 
 
@@ -1216,3 +1266,90 @@ regular_cleanup() # cleanup for all other error situations
 	rm -r ${output_dir}/tmp 2>/dev/null
 	rm -r ${output_dir}/sd-card 2>/dev/null
 }
+
+
+apt_get_helper()
+{
+apt_choice=${1}
+if [ "${apt_choice}" = "write_script" ]
+then
+	fn_my_echo "Writing the 'apt_helper.sh' helper script for the apt install processes."
+	cat<<END>${output_dir}/mnt_debootstrap/apt_helper.sh
+#!/bin/bash
+# helper script to install a list of packages, even if one or more errors occur
+
+apt_get_helper()
+{
+apt_choice=\${1}
+package_list=\${2}
+update_choice=\${3}
+
+set -- \${package_list}
+
+while [ \$# -gt 0 ]
+do
+	if [ "\${update_choice}" = "upd" ] && [ ! "\${apt_get_update_done}" = "true" ]
+	then
+		/usr/bin/apt-get update
+		apt_get_update_done="true"
+	fi
+	if [ "\${apt_choice}" = "download" ]
+	then
+		/usr/bin/apt-get install -y -d \${1}
+	elif [ "\${apt_choice}" = "install" ]
+	then
+		/usr/bin/apt-get install -y \${1}
+	else
+		echo "ERROR: Parameter 1 should either be 'download' or 'install'.
+Invalid parameter '\${apt_choice}' passed to function. Exiting now!"
+		exit 91
+	fi
+	if [ "\$?" = "0" ]
+	then
+		echo "'\${1}' \${apt_choice}ed sueccessfully!"
+	else
+		echo "ERROR while trying to \${apt_choice} package '\${1}'."
+		echo "ERROR while trying to \${apt_choice} package '\${1}'." >> /apt_helper_error.txt
+	fi
+	shift
+done
+}
+END
+	#chmod +x ${output_dir}/mnt_debootstrap/apt_helper.sh
+elif [ "${apt_choice}" = "download" ] || [ "${apt_choice}" = "install" ]
+then
+	package_list=${2}
+	update_choice=${3}
+
+	set -- ${package_list}
+
+	while [ $# -gt 0 ]
+	do
+		if [ "${update_choice}" = "upd" ] && [ ! "${apt_get_update_done}" = "true" ]
+		then
+			apt-get update
+			apt_get_update_done="true"
+		fi
+		if [ "${apt_choice}" = "download" ]
+		then
+			apt-get install -y -d ${1}
+		elif [ "${apt_choice}" = "install" ]
+		then
+			apt-get install -y ${1}
+		fi
+		if [ "$?" = "0" ]
+		then
+			echo "'${1}' \${apt_choice}ed sueccessfully!"
+		else
+			echo "ERROR while trying to \${apt_choice} '${1}'."
+		fi
+
+		shift
+	done
+else
+	echo "ERROR: Parameter 1 should either be 'write_script' or 'download' or 'install'.
+	Invalid parameter '${apt_choice}' passed to function. Exiting now!"
+	exit 91
+fi
+}
+
