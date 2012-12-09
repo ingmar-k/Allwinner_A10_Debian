@@ -80,11 +80,11 @@ Just creating a complete, fully bootable sd-card."
 		#rootfs_package_path=${default_rootfs_package_path}
 		rootfs_package=${default_rootfs_package}
 	else 
-		#rootfs_package_path=${2%/*}
-		#rootfs_package_name=${2##*/}
-		rootfs_package=${2}
+		rootfs_package_path=${2%/*}
+		rootfs_package_name=${2##*/}
+		#rootfs_package=${2}
 	fi
-	get_n_check_file "${rootfs_package_name}" "rootfs_package" "${output_dir}"
+	get_n_check_file "${rootfs_package_path}/${rootfs_package_name}" "rootfs_package" "${output_dir}"
 	if [ "${rootfs_package_name:(-8)}" = ".tar.bz2" ]
 	then
 		tar_format="bz2"

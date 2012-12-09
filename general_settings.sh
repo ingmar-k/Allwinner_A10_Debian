@@ -15,14 +15,14 @@
 
 host_os="Debian" # Debian or Ubuntu (YOU NEED TO EDIT THIS!)
 nameserver_addr="192.168.2.1" # "141.82.48.1" (YOU NEED TO EDIT THIS!)
-output_dir_base="/home/celemine1gig/Allwinner_A10_debian_build" # where to put the files in general (YOU NEED TO EDIT THIS!) TODO: remove trailing /, if necessary
+output_dir_base="/home/celemine1gig/Allwinner_A10_debian_build" # where to put the files in general (YOU NEED TO EDIT THIS!) 
 bootloader_bin_1="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/sunxi-spl.bin" # bootloader binary: TODO
 bootloader_bin_2="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/u-boot.bin" # bootloader binary: TODO
 bootloader_script="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/script.bin" # Name of the bootscript for automatically booting from sd-card
 root_password="root"
 username="tester"  # Name of user for the graphical login
 user_password="tester"
-use_cache="no"
+use_cache="yes"
 
 
 ### These settings are for experienced users ###
@@ -31,7 +31,7 @@ base_sys_cache_tarball="debian_wheezy_minbase.tgz"
 
 std_locale="en_US.UTF-8" # initial language setting for console (alternatively for example 'en_US.UTF-8')'
 
-debian_mirror_url="http://ftp.de.debian.org/debian/" # mirror for debian
+debian_mirror_url="http://ftp.fr.debian.org/debian/" # mirror for debian
 
 debian_target_version="wheezy" # The version of debian that you want to build (ATM, 'wheezy' and 'sid' are supported)
 
@@ -49,15 +49,16 @@ else
 	output_dir="${output_dir_base}/build_`date +%s`" # Subdirectory for each build-run, ending with the unified Unix-Timestamp (seconds passed since Jan 01 1970)
 fi
 
-work_image_size_MB="5120" # size of the temporary image file, in which the installation process is carried out
+work_image_size_MB="4096" # size of the temporary image file, in which the installation process is carried out
 
 output_filename="debian_rootfs_Allwinner_A10_`date +%s`" # base name of the output file (compressed rootfs)
 
 apt_prerequisites_debian="git debootstrap binfmt-support qemu-user-static qemu qemu-kvm qemu-system parted" # packages needed for the build process on debian
 apt_prerequisites_ubuntu="git debootstrap binfmt-support qemu qemu-system qemu-kvm qemu-kvm-extras-static parted" # packages needed for the build process on ubuntu
 
-base_packages_1="apt-utils dialog locales udev"
-base_packages_2="dictionaries-common aspell"
+deb_add_packages="apt-utils,dialog,locales,udev,dictionaries-common,aspell"
+#base_packages_1="apt-utils dialog locales udev"
+#base_packages_2="dictionaries-common aspell"
 
 clean_tmp_files="no" # delete the temporary files, when the build process is done?
 
@@ -73,8 +74,8 @@ create_disk="no" # create a bootable SD-card after building the rootfs?
 ### Additional Software ###
 
 additional_packages="uboot-envtools uboot-mkimage file manpages man-db module-init-tools dhcp3-client netbase ifupdown iproute iputils-ping net-tools wget vim nano hdparm rsync bzip2 p7zip unrar unzip zip p7zip-full screen less usbutils psmisc strace info ethtool wireless-tools iw wpasupplicant python whois time ruby procps perl parted ftp gettext firmware-linux-free firmware-linux-nonfree firmware-realtek firmware-ralink firmware-linux firmware-brcm80211 firmware-atheros rcconf lrzsz libpam-modules util-linux" # IMPORTANT NOTE: All package names need to be seperated by a single space
-additional_desktop_packages="lightdm xauth xserver-xorg accountsservice upower tasksel dbus-x11 epdfview avahi-daemon cheese cups-pk-helper evolution gimp gstreamer0.10-alsa gstreamer0.10-ffmpeg gstreamer0.10-plugins-ugly gstreamer0.10-plugins-good gstreamer0.10-plugins-bad inkscape libgtk2-perl libreoffice libreoffice-gtk shotwell simple-scan tomboy transmission-gtk xdg-user-dirs-gtk xul-ext-adblock-plus iceweasel icedove iceowl-extension browser-plugin-gnash pcmanfm menu-xdg planner quodlibet synaptic system-config-printer vlc xsane mythes-en-us hyphen-en-us hunspell-en-us leafpad shed nedit editra fotoxx xterm eterm e17" # "task-xfce-desktop"  # "gnome"
-additional_dev_packages="git subversion build-essential autoconf automake make libtool xorg-dev xutils-dev libdrm-dev libxcb-dri2-0 libxcb-dri2-0-dev"
+additional_desktop_packages="lightdm xauth xserver-xorg accountsservice upower tasksel dbus-x11 epdfview avahi-daemon cups-pk-helper gimp gstreamer0.10-alsa gstreamer0.10-ffmpeg gstreamer0.10-plugins-ugly gstreamer0.10-plugins-good gstreamer0.10-plugins-bad inkscape libgtk2-perl libreoffice libreoffice-gtk shotwell simple-scan transmission-gtk xdg-user-dirs-gtk xul-ext-adblock-plus iceweasel icedove iceowl-extension browser-plugin-gnash pcmanfm menu-xdg planner quodlibet synaptic system-config-printer vlc xsane mythes-en-us hyphen-en-us hunspell-en-us leafpad shed nedit editra fotoxx xterm eterm e17 esound smplayer mplayer mplayer2 snappy wicd-gtk"
+additional_dev_packages="git subversion build-essential autoconf automake make libtool xorg-dev xutils-dev libdrm-dev"
 
 
 ### ARM Mali400 graphics driver settings ###
@@ -85,9 +86,9 @@ mali_graphics_opengl="no" # Use or do not use binary OpenGL libraries
 mali_2d_bin="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/xserver_mali/xserver_mali.tar.bz2"
 mali_opengl_bin="http://dl.linux-sunxi.org/mali/lib-r3p0-04rel0.tar.gz"
 
-mali_xserver_2d_git="https://github.com/linux-sunxi/xf86-video-mali.git"
+mali_xserver_2d_git="https://github.com/linux-sunxi/xf86-video-mali.git -b r3p1-01rel1"
 mali_2d_libdri2_git="git://github.com/robclark/libdri2.git"
-mali_2d_libump_git="https://github.com/linux-sunxi/libump.git"
+mali_2d_libump_git="https://github.com/linux-sunxi/libump.git -b r3p1-01rel1"
 mali_2d_misc_libs_git="https://github.com/linux-sunxi/mali-libs.git"
 
 

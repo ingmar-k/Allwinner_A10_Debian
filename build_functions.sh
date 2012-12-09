@@ -145,7 +145,7 @@ Trying to install it now!"
 		apt-get install -y ${1}
 		if [ "$?" = "0" ]
 		then
-			fn_my_echo "'${1}' installed sueccessfully!"
+			fn_my_echo "'${1}' installed successfully!"
 		else
 			fn_my_echo "ERROR while trying to install '${1}'."
 			if [ "${host_os}" = "Ubuntu" ] && [ "${1}" = "qemu-system" ]
@@ -239,18 +239,18 @@ then
 	then
 		if [ -e "${output_dir_base}/cache/${base_sys_cache_tarball}" ]
 		then
-			#debootstrap --verbose --arch armhf --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --foreign "${debian_target_version}" "${output_dir}/mnt_debootstrap"
-			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir}/mnt_debootstrap/" "http://ftp.de.debian.org/debian/"
+			fn_my_echo "Using debian debootstrap tarball '${output_dir_base}/cache/${base_sys_cache_tarball}' from cache."
+			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir}/mnt_debootstrap/" "http://ftp.de.debian.org/debian/"
 		else
-			debootstrap --foreign --make-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir_base}/cache/tmp/" "http://ftp.de.debian.org/debian/"
-			#debootstrap --verbose --arch armhf --variant=minbase --make-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --foreign "${debian_target_version}" "${output_dir_base}/cache/${base_sys_cache_tarball}" "${debian_mirror_url}"
+			fn_my_echo "No debian debootstrap tarball found in cache. Creating one now!"
+			debootstrap --foreign --make-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir_base}/cache/tmp/" "http://ftp.de.debian.org/debian/"
 			sleep 3
-			#debootstrap --verbose --arch armhf --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --foreign "${debian_target_version}" "${output_dir}/mnt_debootstrap"
-			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir}/mnt_debootstrap/" "http://ftp.de.debian.org/debian/"
+			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir}/mnt_debootstrap/" "http://ftp.de.debian.org/debian/"
 		fi
 	fi
 else
-	debootstrap --verbose --arch armhf --variant=minbase --foreign "${debian_target_version}" "${output_dir}/mnt_debootstrap" "${debian_mirror_url}"
+	fn_my_echo "Not using cache, according to the settings. Thus running debootstrap without creating a tarball."
+	debootstrap --include=${deb_add_packages} --verbose --arch armhf --variant=minbase --foreign "${debian_target_version}" "${output_dir}/mnt_debootstrap" "${debian_mirror_url}"
 fi
 
 modprobe binfmt_misc
@@ -322,7 +322,7 @@ END
 rm /debootstrap_pt1.sh
 exit" > ${output_dir}/mnt_debootstrap/debootstrap_pt1.sh
 chmod +x ${output_dir}/mnt_debootstrap/debootstrap_pt1.sh
-/usr/sbin/chroot ${output_dir}/mnt_debootstrap /bin/bash /debootstrap_pt1.sh
+/usr/sbin/chroot ${output_dir}/mnt_debootstrap /bin/bash /debootstrap_pt1.sh 2>${output_dir}/debootstrap_pt1_errors.txt
 
 if [ "$?" = "0" ]
 then
@@ -331,14 +331,48 @@ else
 	fn_my_echo "Errors while trying to run the first part of the chroot operations."
 fi
 
+
+if [ "${use_cache}" = "yes" ]
+then
+	if [ -e ${output_dir_base}/cache/additional_packages.tar.gz ]
+	then
+		if [ ! "${mali_graphics_choice}" = "copy" ] && [ ! "${mali_graphics_choice}" = "build" ] 
+		then
+			fn_my_echo "Extracting the additional packages 'additional_packages.tar.gz' from cache. now."
+			tar_all extract "${output_dir_base}/cache/additional_packages.tar.gz" "${output_dir}/mnt_debootstrap/var/cache/apt/" 
+		fi
+	elif [ ! -e "${output_dir}/cache/additional_packages.tar.gz" ]
+	then
+		add_pack_create="yes"
+	fi
+	
+	if [ -e ${output_dir_base}/cache/additional_desktop_packages.tar.gz ] && [ "${mali_graphics_choice}" = "copy" ]
+	then
+		fn_my_echo "Extracting the additional desktop packages 'additional_desktop_packages.tar.gz' from cache. now."
+		tar_all extract "${output_dir_base}/cache/additional_desktop_packages.tar.gz" "${output_dir}/mnt_debootstrap/var/cache/apt/"
+	elif [ ! -e "${output_dir}/cache/additional_desktop_packages.tar.gz" ] && [ ! "${mali_graphics_choice}" = "copy" ]
+	then
+		add_desk_pack_create="yes"
+	fi
+	
+	if [ -e ${output_dir_base}/cache/additional_dev_packages.tar.gz ] && [ "${mali_graphics_choice}" = "build" ]
+	then
+		fn_my_echo "Extracting the additional dev packages 'additional_dev_packages.tar.gz' from cache. now."
+		tar_all extract "${output_dir_base}/cache/additional_dev_packages.tar.gz" "${output_dir}/mnt_debootstrap/var/cache/apt/"
+	elif [ ! -e "${output_dir}/cache/additional_dev_packages.tar.gz" ] && [ "${mali_graphics_choice}" = "build" ]
+	then
+		add_dev_pack_create="yes"
+	fi
+fi
+
+	
 mount devpts ${output_dir}/mnt_debootstrap/dev/pts -t devpts
 mount -t proc proc ${output_dir}/mnt_debootstrap/proc
 
 echo "#!/bin/bash
 source apt_helper.sh
 export LANG=C 2>>/deboostrap_stg2_errors.txt
-apt_get_helper \"install\" \"${base_packages_1}\" upd
-#apt-get -y install ${base_packages_1} 2>>/deboostrap_stg2_errors.txt
+#apt_get_helper \"install\" \"${base_packages_1}\" upd
 
 sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
 #sed -i 's/# en_US.ISO-8859-1/en_US.ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
@@ -353,22 +387,17 @@ export LANG=${std_locale} 2>>/deboostrap_stg2_errors.txt	# language settings
 export LC_ALL=${std_locale} 2>>/deboostrap_stg2_errors.txt
 export LANGUAGE=${std_locale} 2>>/deboostrap_stg2_errors.txt
 
-apt_get_helper \"install\" \"${base_packages_2}\"
-#apt-get -y install ${base_packages_2} 2>>/deboostrap_stg2_errors.txt
+#apt_get_helper \"install\" \"${base_packages_2}\"
 
 apt_get_helper \"download\" \"${additional_packages}\"
-#apt-get -y -d install ${additional_packages} 2>>/deboostrap_stg2_errors.txt
 
 if [ \"${mali_graphics_choice}\" = \"copy\" ]
 then
 	apt_get_helper \"download\" \"${additional_desktop_packages}\"
-	#apt-get -y -d install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
 elif [ \"${mali_graphics_choice}\" = \"build\" ]
 then
 	apt_get_helper \"download\" \"${additional_desktop_packages}\"
 	apt_get_helper \"download\" \"${additional_dev_packages}\"
-	#apt-get -y -d install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
-	#apt-get -y -d install ${additional_dev_packages} 2>>/deboostrap_stg2_errors.txt
 fi
 
 cat <<END > /etc/fstab 2>>/deboostrap_stg2_errors.txt
@@ -383,13 +412,50 @@ echo 'T0:2345:respawn:/sbin/getty ttyS0 115200 vt102' >> /etc/inittab 2>>/deboos
 rm /debootstrap_pt2.sh
 exit" > ${output_dir}/mnt_debootstrap/debootstrap_pt2.sh
 chmod +x ${output_dir}/mnt_debootstrap/debootstrap_pt2.sh
-/usr/sbin/chroot ${output_dir}/mnt_debootstrap /bin/bash /debootstrap_pt2.sh
+/usr/sbin/chroot ${output_dir}/mnt_debootstrap /bin/bash /debootstrap_pt2.sh 2>${output_dir}/debootstrap_pt2_errors.txt
 
 if [ "$?" = "0" ]
 then
 	fn_my_echo "Second part of chroot operations done successfully!"
 else
 	fn_my_echo "Errors while trying to run the second part of the chroot operations."
+fi
+
+
+fn_my_echo "Debug: add_pack_create='${add_pack_create}' ."
+fn_my_echo "Debug: add_desk_pack_create='${add_desk_pack_create}' ."
+fn_my_echo "Debug: add_dev_pack_create='${add_dev_pack_create}' ."
+fn_my_echo "Debug: mali_graphics_choice='${mali_graphics_choice}' ."
+
+if [ "${add_pack_create}" = "yes" ]
+then
+	if  [ ! "${mali_graphics_choice}" = "copy" ] && [ ! "${mali_graphics_choice}" = "build" ]   
+	then
+		fn_my_echo "Compress choice 1."
+		cd ${output_dir}/mnt_debootstrap/var/cache/apt/
+		tar_all compress "${output_dir_base}/cache/additional_packages.tar.gz" .
+		cd ${output_dir}
+	fi
+fi
+
+if [ "${add_dev_pack_create}" = "yes" ] && [ "${mali_graphics_choice}" = "build" ] # case of both desk- and dev-packages already downloaded into the /var/cache dir
+then
+	fn_my_echo "Compress choice 2."
+	fn_my_echo "Trying to create cache archive for dev-packages (includes desktop-packages!)."
+	cd ${output_dir}/mnt_debootstrap/var/cache/apt/
+	tar_all compress "${output_dir_base}/cache/additional_dev_packages.tar.gz" .
+	cd ${output_dir}
+fi
+
+if [ "${add_desk_pack_create}" = "yes" ] && [ "${mali_graphics_choice}" = "copy" ] # case of only desk-packages already downloaded into the /var/cache dir
+then
+	fn_my_echo "Compress choice 3."
+	fn_my_echo "Trying to create cache archive for desktop-packages."
+	cd ${output_dir}/mnt_debootstrap/var/cache/apt/
+	tar_all compress "${output_dir_base}/cache/additional_desktop_packages.tar.gz" .
+	cd ${output_dir}
+#else
+#	fn_my_echo "Can't create cache archive for this scenario."
 fi
 
 sleep 5
@@ -450,6 +516,16 @@ exit 0" > ${output_dir}/mnt_debootstrap/zram_setup.sh
 chmod +x ${output_dir}/mnt_debootstrap/zram_setup.sh
 fi
 
+git_branch_name="${mali_xserver_2d_git##*.git -b }"
+if [ ! -z "${git_branch_name}" ]
+then
+	xf86_version="${git_branch_name:0:4}"
+	fn_my_echo "DEBUG: xf86_version='${xf86_version}' ."
+else
+	xf86_version="r3p0" # default value
+	fn_my_echo "DEBUG: xf86_version='${xf86_version}' ."
+fi
+
 date_cur=`date` # needed further down as a very important part to circumvent the PAM Day0 change password problem
 
 echo "#!/bin/bash
@@ -457,19 +533,16 @@ source apt_helper.sh
 date -s \"${date_cur}\" 2>>/post_debootstrap_errors.txt	# set the system date to prevent PAM from exhibiting its nasty DAY0 forced password change
 
 apt_get_helper \"install\" \"${additional_packages}\"
-#apt-get install -y ${additional_packages} 2>>/post_debootstrap_apt_errors.txt
 if [ \"${mali_graphics_choice}\" = \"copy\" ]
 then
 	apt_get_helper \"install\" \"${additional_desktop_packages}\"
-	#apt-get -y install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
 elif [ \"${mali_graphics_choice}\" = \"build\" ]
 then
 	apt_get_helper \"install\" \"${additional_desktop_packages}\"
 	apt_get_helper \"install\" \"${additional_dev_packages}\"
-	#apt-get -y install ${additional_desktop_packages} 2>>/deboostrap_stg2_errors.txt
-	#apt-get -y install ${additional_dev_packages} 2>>/deboostrap_stg2_errors.txt
 fi
 
+#apt-get autoremove
 apt-get clean
 dpkg -l > /installed_packages.txt
 ldconfig -v
@@ -574,9 +647,9 @@ END
 			if [ \"\${?}\" = \"0\" ]
 			then
 				echo \"Successfully changed into directory '/root/mali_2d_build/mali-libs/'.\"
-				make VERSION=r3p0 ABI=armhf x11 2>>/mali_drv_compile.txt && xserver_build_log=\"1\" && echo \"Successfully ran the command 'make VERSION=r3p0 ABI=armhf x11'.\"
+				make VERSION=${xf86_version} ABI=armhf x11 2>>/mali_drv_compile.txt && xserver_build_log=\"1\" && echo \"Successfully ran the command 'make VERSION=${xf86_version} ABI=armhf x11'.\"
 				make headers 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 2\" && echo \"Successfully ran 'make headers'.\"
-				cp -rf ./lib/r3p0/armhf/x11/*.so /usr/lib/ 2>>/mali_drv_compile.txt && echo \"Successfully copied the libraries from './lib/r3p0/armhf/x11/' to '/usr/lib/'.\"
+				cp -rf ./lib/${xf86_version}/armhf/x11/*.so /usr/lib/ 2>>/mali_drv_compile.txt && echo \"Successfully copied the libraries from './lib/${xf86_version}/armhf/x11/' to '/usr/lib/'.\"
 			fi
 			cd /root/mali_2d_build/libdri2 2>>/mali_drv_compile.txt
 			if [ \"\${?}\" = \"0\" ]
@@ -663,6 +736,11 @@ fi
 
 ldconfig -v
 
+if [ -e /apt_helper.sh ]
+then
+	rm /apt_helper.sh
+fi
+
 reboot 2>>/post_debootstrap_errors.txt
 exit 0" > ${output_dir}/mnt_debootstrap/post_debootstrap_setup.sh
 chmod +x ${output_dir}/mnt_debootstrap/post_debootstrap_setup.sh
@@ -684,6 +762,80 @@ then
 	get_n_check_file "${mali_2d_libdri2_git}" "libdri2" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
 	get_n_check_file "${mali_2d_libump_git}" "libump" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
 	get_n_check_file "${mali_2d_misc_libs_git}" "mali-libs" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
+	if [ -d ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src ] && [ "${xf86_version}" = "r3p1" ]
+	then
+		fn_my_echo "Adding fix for 'xf86-video-mali' release 'r3p1' to sources downloaded via git."
+		cd ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src
+		mkdir ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src/umplock
+		cat<<END>${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src/umplock/umplock_ioctl.h
+/*
+* Copyright (C) 2012 ARM Limited. All rights reserved.
+*
+* This program is free software and is provided to you under the terms of the GNU General Public License version 2
+* as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+*
+* A copy of the licence is included with the program, and can also be obtained from Free Software
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*/
+
+#ifndef __UMPLOCK_IOCTL_H__
+#define __UMPLOCK_IOCTL_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/*#include 
+#include 
+*/
+#ifndef __user
+#define __user
+#endif
+
+
+/**
+* @file umplock_ioctl.h
+* This file describes the interface needed to use the Linux device driver.
+* The interface is used by the userpace Mali DDK.
+*/
+
+typedef enum
+{
+    _LOCK_ACCESS_RENDERABLE = 1,
+    _LOCK_ACCESS_TEXTURE,
+    _LOCK_ACCESS_CPU_WRITE,
+    _LOCK_ACCESS_CPU_READ,
+} _lock_access_usage;
+
+typedef struct _lock_item_s
+
+{
+    unsigned int secure_id;
+    _lock_access_usage usage;
+} _lock_item_s;
+
+
+#define LOCK_IOCTL_GROUP 0x91
+
+#define _LOCK_IOCTL_CREATE_CMD  0   /* create kernel lock item        */
+#define _LOCK_IOCTL_PROCESS_CMD 1   /* process kernel lock item       */
+#define _LOCK_IOCTL_RELEASE_CMD 2   /* release kernel lock item       */
+#define _LOCK_IOCTL_ZAP_CMD     3   /* clean up all kernel lock items */
+
+#define LOCK_IOCTL_MAX_CMDS    4
+
+#define LOCK_IOCTL_CREATE  _IOW( LOCK_IOCTL_GROUP, _LOCK_IOCTL_CREATE_CMD,  _lock_item_s )
+#define LOCK_IOCTL_PROCESS _IOW( LOCK_IOCTL_GROUP, _LOCK_IOCTL_PROCESS_CMD, _lock_item_s )
+#define LOCK_IOCTL_RELEASE _IOW( LOCK_IOCTL_GROUP, _LOCK_IOCTL_RELEASE_CMD, _lock_item_s )
+#define LOCK_IOCTL_ZAP     _IO ( LOCK_IOCTL_GROUP, _LOCK_IOCTL_ZAP_CMD )
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __UMPLOCK_IOCTL_H__ */
+END
+	fi	
 fi
 
 if [ "${i2c_hwclock}" = "yes" ]
@@ -1172,7 +1324,7 @@ output_path=${3}
 
 if [ -z "${1}" ] || [ -z "${2}" ] || [ -z "${3}" ]
 then
-	fn_my_echo "ERROR: Function get_n_check_file needs 4 parameters.
+	fn_my_echo "ERROR: Function get_n_check_file needs 3 parameters.
 Parameter 1 is file_path/file_name, parameter 2 is short_description and parameter 3 is output-path.
 Faulty parameters passed were '${1}', '${2}' and '${3}'.
 One or more of these appear to be empty. Exiting now!" 
@@ -1199,25 +1351,42 @@ then
 				exit 42
 			fi
 		else
-			fn_my_echo "Trying to download ${short_description} from address '${file_path}/${file_name}', now."
-			wget -q --spider ${file_path}/${file_name}
+			echo "${file_name}" |grep ".git -b "
 			if [ "$?" = "0" ]
 			then
-				wget -t 3 ${file_path}/${file_name}
+				branch_name="${file_name##*.git -b }"
+				git_repo="${file_path}/${file_name% -b*}"
+				git clone -b ${branch_name} ${git_repo}
 				if [ "$?" = "0" ]
 				then
-					fn_my_echo "'${short_description}' successfully downloaded from address '${file_path}/${file_name}'."
+					fn_my_echo "'${short_description}' repository, branch '${branch_name}', successfully cloned from address '${file_path}/${file_name}'."
 				else
-					fn_my_echo "ERROR: File '${file_path}/${file_name}' could not be downloaded.
+					fn_my_echo "ERROR: Repository '${file_path}/${file_name}', branch '${branch_name}' could not be cloned.
 		Exiting now!"
 				regular_cleanup
 				exit 43
 				fi
-			else
-				fn_my_echo "ERROR: '${file_path}/${file_name}' does not seem to be a valid internet address. Please check!
-		Exiting now!"
-				regular_cleanup
-				exit 44
+			else  
+				fn_my_echo "Trying to download ${short_description} from address '${file_path}/${file_name}', now."
+				wget -q --spider ${file_path}/${file_name}
+				if [ "$?" = "0" ]
+				then
+					wget -t 3 ${file_path}/${file_name}
+					if [ "$?" = "0" ]
+					then
+						fn_my_echo "'${short_description}' successfully downloaded from address '${file_path}/${file_name}'."
+					else
+						fn_my_echo "ERROR: File '${file_path}/${file_name}' could not be downloaded.
+			Exiting now!"
+					regular_cleanup
+					exit 43
+					fi
+				else
+					fn_my_echo "ERROR: '${file_path}/${file_name}' does not seem to be a valid internet address. Please check!
+			Exiting now!"
+					regular_cleanup
+					exit 44
+				fi
 			fi
 		fi
 	else
@@ -1306,7 +1475,7 @@ Invalid parameter '\${apt_choice}' passed to function. Exiting now!"
 	fi
 	if [ "\$?" = "0" ]
 	then
-		echo "'\${1}' \${apt_choice}ed sueccessfully!"
+		echo "'\${1}' \${apt_choice}ed successfully!"
 	else
 		echo "ERROR while trying to \${apt_choice} package '\${1}'."
 		echo "ERROR while trying to \${apt_choice} package '\${1}'." >> /apt_helper_error.txt
@@ -1339,7 +1508,7 @@ then
 		fi
 		if [ "$?" = "0" ]
 		then
-			echo "'${1}' \${apt_choice}ed sueccessfully!"
+			echo "'${1}' \${apt_choice}ed successfully!"
 		else
 			echo "ERROR while trying to \${apt_choice} '${1}'."
 		fi
