@@ -422,10 +422,10 @@ else
 fi
 
 
-fn_my_echo "Debug: add_pack_create='${add_pack_create}' ."
-fn_my_echo "Debug: add_desk_pack_create='${add_desk_pack_create}' ."
-fn_my_echo "Debug: add_dev_pack_create='${add_dev_pack_create}' ."
-fn_my_echo "Debug: mali_graphics_choice='${mali_graphics_choice}' ."
+#fn_my_echo "Debug: add_pack_create='${add_pack_create}' ."
+#fn_my_echo "Debug: add_desk_pack_create='${add_desk_pack_create}' ."
+#fn_my_echo "Debug: add_dev_pack_create='${add_dev_pack_create}' ."
+#fn_my_echo "Debug: mali_graphics_choice='${mali_graphics_choice}' ."
 
 if [ "${add_pack_create}" = "yes" ]
 then
@@ -520,10 +520,10 @@ git_branch_name="${mali_xserver_2d_git##*.git -b }"
 if [ ! -z "${git_branch_name}" ]
 then
 	xf86_version="${git_branch_name:0:4}"
-	fn_my_echo "DEBUG: xf86_version='${xf86_version}' ."
+	#fn_my_echo "DEBUG: xf86_version='${xf86_version}' ."
 else
 	xf86_version="r3p0" # default value
-	fn_my_echo "DEBUG: xf86_version='${xf86_version}' ."
+	#fn_my_echo "DEBUG: xf86_version='${xf86_version}' ."
 fi
 
 date_cur=`date` # needed further down as a very important part to circumvent the PAM Day0 change password problem
@@ -761,18 +761,21 @@ then
 	get_n_check_file "${mali_xserver_2d_git}" "xf86-video-mali" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
 	get_n_check_file "${mali_2d_libdri2_git}" "libdri2" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
 	get_n_check_file "${mali_2d_libump_git}" "libump" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
-	if [ "${xf86_version}" = "r3p1" ] 
+	grep 'arm-none-linux-gnueabi-' ${output_dir}/mnt_debootstrap/root/mali_2d_build/libump/Makefile
+	if [ "$?" = "0" ] 
 	then
 		mv ${output_dir}/mnt_debootstrap/root/mali_2d_build/libump/Makefile ${output_dir}/mnt_debootstrap/root/mali_2d_build/libump/Makefile.bak
 		get_n_check_file "https://raw.github.com/linux-sunxi/libump/r3p0-04rel0/Makefile" "libump_Makefile_fix" "${output_dir}/mnt_debootstrap/root/mali_2d_build/libump/"
 	fi
 	get_n_check_file "${mali_2d_misc_libs_git}" "mali-libs" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
-	if [ -d ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src ] && [ "${xf86_version}" = "r3p1" ]
+	if [ -d ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src ]
 	then
-		fn_my_echo "Adding fix for 'xf86-video-mali' release 'r3p1' to sources downloaded via git."
-		cd ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src
-		mkdir ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src/umplock
-		cat<<END>${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src/umplock/umplock_ioctl.h
+		if [ ! -e ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src/umplock/umplock_ioctl.h ]
+		then
+			fn_my_echo "Adding fix for 'xf86-video-mali' release 'r3p1' to sources downloaded via git."
+			cd ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src
+			mkdir ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src/umplock
+			cat<<END>${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src/umplock/umplock_ioctl.h
 /*
 * Copyright (C) 2012 ARM Limited. All rights reserved.
 *
@@ -840,6 +843,7 @@ typedef struct _lock_item_s
 
 #endif /* __UMPLOCK_IOCTL_H__ */
 END
+		fi
 	fi	
 fi
 

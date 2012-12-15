@@ -77,12 +77,10 @@ Just creating a complete, fully bootable sd-card."
 	if [ "$2" = "default" ]
 	then
 		fn_my_echo "Using the default rootfs-package settings defined in 'general_settings.sh'."
-		#rootfs_package_path=${default_rootfs_package_path}
 		rootfs_package=${default_rootfs_package}
 	else 
 		rootfs_package_path=${2%/*}
 		rootfs_package_name=${2##*/}
-		#rootfs_package=${2}
 	fi
 	get_n_check_file "${rootfs_package_path}/${rootfs_package_name}" "rootfs_package" "${output_dir}"
 	if [ "${rootfs_package_name:(-8)}" = ".tar.bz2" ]
@@ -117,6 +115,7 @@ Correct parameters are:
 -----------------------
 Parameter 1: --build OR -b (If you only want to build a compressed rootfs archive for example for later use, according to the settings in 'general_settings.sh'.)
 Parameter 1: --install 'archivename' OR -i 'archivename' (if you only want to create a bootable SD-card with an already existing rootfs-package, tar.bz2 or tar.gz compressed archive)
+Parameter 1: --clean all OR --clean build OR --clean cache (The first one cleans both, build and cache directories, while the other two only clean one directory respectively)
 Parameter 2: --bootloader 'binary name' OR -bl 'binary name' (if you want to specify a Bootloader binary directly. It can either be a local file or link to an online source)
 -----------------------
 Besides that you can also run '$0' without any parameters, for the full functionality, according to the settings in 'general_settings'.

@@ -15,14 +15,10 @@
 
 host_os="Debian" # Debian or Ubuntu (YOU NEED TO EDIT THIS!)
 nameserver_addr="192.168.2.1" # "141.82.48.1" (YOU NEED TO EDIT THIS!)
-output_dir_base="/home/celemine1gig/Allwinner_A10_debian_build" # where to put the files in general (YOU NEED TO EDIT THIS!) 
-bootloader_bin_1="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/sunxi-spl.bin" # bootloader binary: TODO
-bootloader_bin_2="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/u-boot.bin" # bootloader binary: TODO
-bootloader_script="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/script.bin" # Name of the bootscript for automatically booting from sd-card
+output_dir_base="/home/${USERNAME}/Allwinner_A10_debian_build" # where to put the files in general (YOU NEED TO EDIT THIS!) 
 root_password="root"
 username="tester"  # Name of user for the graphical login
 user_password="tester"
-use_cache="yes"
 
 
 ### These settings are for experienced users ###
@@ -35,10 +31,13 @@ debian_mirror_url="http://ftp.de.debian.org/debian/" # mirror for debian
 
 debian_target_version="wheezy" # The version of debian that you want to build (ATM, 'wheezy' and 'sid' are supported)
 
+bootloader_bin_1="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/sunxi-spl.bin" # bootloader binary
+bootloader_bin_2="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/u-boot.bin" # bootloader binary
+bootloader_script="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/script.bin" # Name of the bootscript for automatically booting from sd-card
 
-qemu_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/vmlinuz_Ubuntu_natty_armversatile.tar.bz2" # qemu kernel file name TODO
+qemu_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/vmlinuz_Ubuntu_natty_armversatile.tar.bz2" # qemu kernel file name
 
-std_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/kernel_3.4.19-HSA-hackberry-1.1_1355530534.tar.bz2" # standard kernel file name TODO
+std_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/kernel_3.4.19-HSA-hackberry-1.1_1355530534.tar.bz2" # standard kernel file name
  
 tar_format="bz2" # bz2(=bzip2) or gz(=gzip)
 
@@ -60,10 +59,11 @@ deb_add_packages="apt-utils,dialog,locales,udev,dictionaries-common,aspell"
 #base_packages_1="apt-utils dialog locales udev"
 #base_packages_2="dictionaries-common aspell"
 
-clean_tmp_files="no" # delete the temporary files, when the build process is done?
+clean_tmp_files="yes" # delete the temporary files, when the build process is done?
 
 create_disk="no" # create a bootable SD-card after building the rootfs?
 
+use_cache="no"
 
 
 ####################################
@@ -96,7 +96,7 @@ mali_2d_misc_libs_git="https://github.com/linux-sunxi/mali-libs.git"
 
 use_zram="yes" # Kernel 3.x.x only!!! set if you want to use a compressed SWAP space in RAM and your Kernel version is 3.x.x (can potentionally improve performance)
 zram_kernel_module_name="zram" # name of the ramzswap kernel module (could have a different name on newer kernel versions)
-zram_size_B="402653184" # size of the ramzswap device in Byte (!!!)
+zram_size_B="536870912" # size of the ramzswap device in Byte (!!!)
 
 
 vm_swappiness="100" # Setting for general kernel RAM swappiness: With RAMzswap and low RAM, a high number (like 100) could be good. Default in Linux mostly is 60.
@@ -121,4 +121,4 @@ size_swap_partition="512"   # size of the swap partition, in MB (MegaByte)
 ##### "INSTALL ONLY" SETTINGS: #####
 ####################################
 
-default_rootfs_package="" # filename of the rootfs-archive TODO
+default_rootfs_package="" # filename of the rootfs-archive
