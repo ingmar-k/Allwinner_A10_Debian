@@ -31,14 +31,14 @@ base_sys_cache_tarball="debian_wheezy_minbase.tgz"
 
 std_locale="en_US.UTF-8" # initial language setting for console (alternatively for example 'en_US.UTF-8')'
 
-debian_mirror_url="http://ftp.fr.debian.org/debian/" # mirror for debian
+debian_mirror_url="http://ftp.de.debian.org/debian/" # mirror for debian
 
 debian_target_version="wheezy" # The version of debian that you want to build (ATM, 'wheezy' and 'sid' are supported)
 
 
 qemu_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/vmlinuz_Ubuntu_natty_armversatile.tar.bz2" # qemu kernel file name TODO
 
-std_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/kernel_A10.tar.bz2" # standard kernel file name TODO
+std_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/kernel_3.4.19-HSA-hackberry-1.1_1355530534.tar.bz2" # standard kernel file name TODO
  
 tar_format="bz2" # bz2(=bzip2) or gz(=gzip)
 
@@ -74,7 +74,7 @@ create_disk="no" # create a bootable SD-card after building the rootfs?
 ### Additional Software ###
 
 additional_packages="uboot-envtools uboot-mkimage file manpages man-db module-init-tools dhcp3-client netbase ifupdown iproute iputils-ping net-tools wget vim nano hdparm rsync bzip2 p7zip unrar unzip zip p7zip-full screen less usbutils psmisc strace info ethtool wireless-tools iw wpasupplicant python whois time ruby procps perl parted ftp gettext firmware-linux-free firmware-linux-nonfree firmware-realtek firmware-ralink firmware-linux firmware-brcm80211 firmware-atheros rcconf lrzsz libpam-modules util-linux" # IMPORTANT NOTE: All package names need to be seperated by a single space
-additional_desktop_packages="lightdm xauth xserver-xorg accountsservice upower tasksel dbus-x11 epdfview avahi-daemon cups-pk-helper gimp gstreamer0.10-alsa gstreamer0.10-ffmpeg gstreamer0.10-plugins-ugly gstreamer0.10-plugins-good gstreamer0.10-plugins-bad inkscape libgtk2-perl libreoffice libreoffice-gtk shotwell simple-scan transmission-gtk xdg-user-dirs-gtk xul-ext-adblock-plus iceweasel icedove iceowl-extension browser-plugin-gnash pcmanfm menu-xdg planner quodlibet synaptic system-config-printer vlc xsane mythes-en-us hyphen-en-us hunspell-en-us leafpad shed nedit editra fotoxx xterm eterm e17 esound smplayer mplayer mplayer2 snappy wicd-gtk"
+additional_desktop_packages="lightdm xauth xserver-xorg accountsservice upower tasksel dbus-x11 epdfview avahi-daemon cups-pk-helper gimp gstreamer0.10-alsa gstreamer0.10-ffmpeg gstreamer0.10-plugins-ugly gstreamer0.10-plugins-good gstreamer0.10-plugins-bad inkscape libgtk2-perl libreoffice libreoffice-gtk shotwell simple-scan transmission-gtk xdg-user-dirs-gtk xul-ext-adblock-plus iceweasel icedove iceowl-extension browser-plugin-gnash pcmanfm menu-xdg planner quodlibet synaptic system-config-printer vlc xsane mythes-en-us hyphen-en-us hunspell-en-us leafpad shed nedit editra fotoxx xterm eterm e17 esound smplayer mplayer mplayer2 snappy wicd-gtk connman network-manager-gnome"
 additional_dev_packages="git subversion build-essential autoconf automake make libtool xorg-dev xutils-dev libdrm-dev"
 
 
@@ -94,7 +94,7 @@ mali_2d_misc_libs_git="https://github.com/linux-sunxi/mali-libs.git"
 
 ### Settings for compressed SWAP space in RAM ### 
 
-use_zram="no" # Kernel 3.x.x only!!! set if you want to use a compressed SWAP space in RAM and your Kernel version is 3.x.x (can potentionally improve performance)
+use_zram="yes" # Kernel 3.x.x only!!! set if you want to use a compressed SWAP space in RAM and your Kernel version is 3.x.x (can potentionally improve performance)
 zram_kernel_module_name="zram" # name of the ramzswap kernel module (could have a different name on newer kernel versions)
 zram_size_B="402653184" # size of the ramzswap device in Byte (!!!)
 
