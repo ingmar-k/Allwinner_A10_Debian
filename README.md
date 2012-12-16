@@ -88,7 +88,7 @@ Running the script in full mode, utilizing all functions, is as easy as doing th
 - Make sure that you downloaded/cloned all 3 script files (or the complete package) via git and edited the "general_settings.sh".
 - Run `chmod +x build_debian_system.sh` if needed, to make the file executable.
 - Run the script itself by typing `sudo ./build_debian_system.sh` in a terminal window (NOT in a virtual console!). Of course you can also run the script as root directly, not using sudo.
-- Then follow the instructions on the screen! If nothing goes wrong, no user-input should be required until choosing the SD-Card device is necessary (if you did set the option to create one!).
+- Then follow the instructions on the screen! If nothing goes wrong, the only user-input required should be for choosing the keyboard layout and the default system locale and maybe then during the optional creation of the SD-card.
 - The output should be in form of a compressed archive file (.tar.gz or .tar.bz2) containing the rootfs and kernel. The filename will be like set in "general_settings.sh".
 - If you set the option to build a SD-Card, you will be asked to specify the correct device name for the SD-card, which then will be subsequently partitioned, formatted and filled with bootloader, rootfs and kernel.
 

@@ -27,6 +27,8 @@ base_sys_cache_tarball="debian_wheezy_minbase.tgz"
 
 std_locale="en_US.UTF-8" # initial language setting for console (alternatively for example 'en_US.UTF-8')'
 
+locale_list="en_US.UTF-8 de_DE.UTF-8" # list of locales to enable during configuration
+
 debian_mirror_url="http://ftp.de.debian.org/debian/" # mirror for debian
 
 debian_target_version="wheezy" # The version of debian that you want to build (ATM, 'wheezy' and 'sid' are supported)
@@ -55,15 +57,13 @@ output_filename="debian_rootfs_Allwinner_A10_`date +%s`" # base name of the outp
 apt_prerequisites_debian="git debootstrap binfmt-support qemu-user-static qemu qemu-kvm qemu-system parted" # packages needed for the build process on debian
 apt_prerequisites_ubuntu="git debootstrap binfmt-support qemu qemu-system qemu-kvm qemu-kvm-extras-static parted" # packages needed for the build process on ubuntu
 
-deb_add_packages="apt-utils,dialog,locales,udev,dictionaries-common,aspell"
-#base_packages_1="apt-utils dialog locales udev"
-#base_packages_2="dictionaries-common aspell"
+deb_add_packages="apt-utils,dialog,locales,udev,dictionaries-common,aspell" # extra packages to install via debotstrap
 
 clean_tmp_files="yes" # delete the temporary files, when the build process is done?
 
 create_disk="no" # create a bootable SD-card after building the rootfs?
 
-use_cache="no"
+use_cache="no" # use or don't use caching for the apt and debootstrap processes (caching can speed things up, but it can also lead to problems)
 
 
 ####################################
@@ -81,12 +81,12 @@ additional_dev_packages="git subversion build-essential autoconf automake make l
 ### ARM Mali400 graphics driver settings ###
 
 mali_graphics_choice="build" # copy|build|none (copy=use a precompiled, downloaded driver | build= install dev-packages and sources and try to compile the driver | none= no driver and no graphical desktop)
-mali_graphics_opengl="no" # Use or do not use binary OpenGL libraries
+mali_graphics_opengl="no" # Use or do not use binary/precompiled OpenGL libraries
 
-mali_2d_bin="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/xserver_mali/xserver_mali.tar.bz2"
-mali_opengl_bin="http://dl.linux-sunxi.org/mali/lib-r3p0-04rel0.tar.gz"
+mali_2d_bin="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/xserver_mali/xserver_mali.tar.bz2" # precompiled xserver driver
+mali_opengl_bin="http://dl.linux-sunxi.org/mali/lib-r3p0-04rel0.tar.gz" # precompiled opengl libraries for mali
 
-mali_xserver_2d_git="https://github.com/linux-sunxi/xf86-video-mali.git -b r3p1-01rel1"
+mali_xserver_2d_git="https://github.com/linux-sunxi/xf86-video-mali.git -b r3p1-01rel1" # the "-b r3p1-01rel1" specifies the branch to get
 mali_2d_libdri2_git="git://github.com/robclark/libdri2.git"
 mali_2d_libump_git="https://github.com/linux-sunxi/libump.git -b r3p1-01rel1"
 mali_2d_misc_libs_git="https://github.com/linux-sunxi/mali-libs.git"

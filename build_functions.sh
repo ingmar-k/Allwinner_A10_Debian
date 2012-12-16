@@ -240,12 +240,12 @@ then
 		if [ -e "${output_dir_base}/cache/${base_sys_cache_tarball}" ]
 		then
 			fn_my_echo "Using debian debootstrap tarball '${output_dir_base}/cache/${base_sys_cache_tarball}' from cache."
-			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir}/mnt_debootstrap/" "http://ftp.de.debian.org/debian/"
+			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir}/mnt_debootstrap/" "${debian_mirror_url}"
 		else
 			fn_my_echo "No debian debootstrap tarball found in cache. Creating one now!"
-			debootstrap --foreign --make-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir_base}/cache/tmp/" "http://ftp.de.debian.org/debian/"
+			debootstrap --foreign --make-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir_base}/cache/tmp/" "${debian_mirror_url}"
 			sleep 3
-			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir}/mnt_debootstrap/" "http://ftp.de.debian.org/debian/"
+			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir}/mnt_debootstrap/" "${debian_mirror_url}"
 		fi
 	fi
 else
@@ -372,22 +372,17 @@ mount -t proc proc ${output_dir}/mnt_debootstrap/proc
 echo "#!/bin/bash
 source apt_helper.sh
 export LANG=C 2>>/deboostrap_stg2_errors.txt
-#apt_get_helper \"install\" \"${base_packages_1}\" upd
 
-sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
-#sed -i 's/# en_US.ISO-8859-1/en_US.ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
-#sed -i 's/# en_US.ISO-8859-1 ISO-8859-1/en_US.ISO-8859-1 ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
-#sed -i 's/# de_DE.ISO-8859-1/de_DE.ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
-sed -i 's/# de_DE.UTF-8/de_DE.UTF-8/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
-#sed -i 's/# de_DE@euro ISO-8859-1/# de_DE@euro ISO-8859-1/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+for k in ${locale_list}
+do
+	sed -i 's/# ${k}/${k}/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+done
 
 locale-gen 2>>/deboostrap_stg2_errors.txt
 
 export LANG=${std_locale} 2>>/deboostrap_stg2_errors.txt	# language settings
 export LC_ALL=${std_locale} 2>>/deboostrap_stg2_errors.txt
 export LANGUAGE=${std_locale} 2>>/deboostrap_stg2_errors.txt
-
-#apt_get_helper \"install\" \"${base_packages_2}\"
 
 apt_get_helper \"download\" \"${additional_packages}\"
 
@@ -1323,7 +1318,7 @@ fi
 }
 
 
-
+# Description: Helper function to get (download via wget or git, or link locally) and check any file needed for the build process
 get_n_check_file()
 {
 file_path=${1%/*}
@@ -1427,25 +1422,7 @@ cd ${output_dir}
 }
 
 
-int_cleanup() # special treatment for script abort through interrupt ('ctrl-c'  keypress, etc.)
-{
-	fn_my_echo "Build process interrrupted. Now trying to clean up!"
-	umount_img all 2>/dev/null
-	rm -r ${output_dir}/mnt_debootstrap 2>/dev/null
-	rm -r ${output_dir}/tmp 2>/dev/null
-	rm -r ${output_dir}/sd-card 2>/dev/null
-	exit 99
-}
-
-regular_cleanup() # cleanup for all other error situations
-{
-	umount_img all 2>/dev/null
-	rm -r ${output_dir}/mnt_debootstrap 2>/dev/null
-	rm -r ${output_dir}/tmp 2>/dev/null
-	rm -r ${output_dir}/sd-card 2>/dev/null
-}
-
-
+# Description: Helper function to help with installing packages via apt. Without this, one wrong entry in the package list leads to the whole list being discarded. With it, apt gets called for each package alone, which only leads to an error if one package can't be installed.
 apt_get_helper()
 {
 apt_choice=${1}
@@ -1493,7 +1470,6 @@ Invalid parameter '\${apt_choice}' passed to function. Exiting now!"
 done
 }
 END
-	#chmod +x ${output_dir}/mnt_debootstrap/apt_helper.sh
 elif [ "${apt_choice}" = "download" ] || [ "${apt_choice}" = "install" ]
 then
 	package_list=${2}
@@ -1531,3 +1507,24 @@ else
 fi
 }
 
+
+
+# Description: Helper function to clean up in case of an interrupt
+int_cleanup() # special treatment for script abort through interrupt ('ctrl-c'  keypress, etc.)
+{
+	fn_my_echo "Build process interrrupted. Now trying to clean up!"
+	umount_img all 2>/dev/null
+	rm -r ${output_dir}/mnt_debootstrap 2>/dev/null
+	rm -r ${output_dir}/tmp 2>/dev/null
+	rm -r ${output_dir}/sd-card 2>/dev/null
+	exit 99
+}
+
+# Description: Helper function to clean up in case of an error
+regular_cleanup() # cleanup for all other error situations
+{
+	umount_img all 2>/dev/null
+	rm -r ${output_dir}/mnt_debootstrap 2>/dev/null
+	rm -r ${output_dir}/tmp 2>/dev/null
+	rm -r ${output_dir}/sd-card 2>/dev/null
+}
