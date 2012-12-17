@@ -375,7 +375,7 @@ export LANG=C 2>>/deboostrap_stg2_errors.txt
 
 for k in ${locale_list}
 do
-	sed -i 's/# '${k}'/'${k}'/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+	sed -i 's/# '\${k}'/'\${k}'/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
 done
 
 locale-gen 2>>/deboostrap_stg2_errors.txt
