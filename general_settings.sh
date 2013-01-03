@@ -31,6 +31,8 @@ locale_list="en_US.UTF-8 de_DE.UTF-8" # list of locales to enable during configu
 
 debian_mirror_url="http://ftp.de.debian.org/debian/" # mirror for debian
 
+debian_repositories="main contrib non-free"
+
 debian_target_version="wheezy" # The version of debian that you want to build (ATM, 'wheezy' and 'sid' are supported)
 
 bootloader_bin_1="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/sunxi-spl.bin" # bootloader binary
@@ -39,7 +41,7 @@ bootloader_script="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/
 
 qemu_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/vmlinuz_Ubuntu_natty_armversatile.tar.bz2" # qemu kernel file name
 
-std_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/kernel_3.4.19-HSA-hackberry-1.1_1355530534.tar.bz2" # standard kernel file name
+std_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/kernel_3.4.19-HSA-hackberry-1.2_1355778012.tar.bz2" # standard kernel file name
  
 tar_format="bz2" # bz2(=bzip2) or gz(=gzip)
 
@@ -59,7 +61,7 @@ apt_prerequisites_ubuntu="git debootstrap binfmt-support qemu qemu-system qemu-k
 
 deb_add_packages="apt-utils,dialog,locales,udev,dictionaries-common,aspell" # extra packages to install via debotstrap
 
-clean_tmp_files="yes" # delete the temporary files, when the build process is done?
+clean_tmp_files="no" # delete the temporary files, when the build process is done?
 
 create_disk="no" # create a bootable SD-card after building the rootfs?
 
@@ -73,8 +75,8 @@ use_cache="no" # use or don't use caching for the apt and debootstrap processes 
 
 ### Additional Software ###
 
-additional_packages="uboot-envtools uboot-mkimage file manpages man-db module-init-tools dhcp3-client netbase ifupdown iproute iputils-ping net-tools wget vim nano hdparm rsync bzip2 p7zip unrar unzip zip p7zip-full screen less usbutils psmisc strace info ethtool wireless-tools iw wpasupplicant python whois time ruby procps perl parted ftp gettext firmware-linux-free firmware-linux-nonfree firmware-realtek firmware-ralink firmware-linux firmware-brcm80211 firmware-atheros rcconf lrzsz libpam-modules util-linux" # IMPORTANT NOTE: All package names need to be seperated by a single space
-additional_desktop_packages="lightdm xauth xserver-xorg accountsservice upower tasksel dbus-x11 epdfview avahi-daemon cups-pk-helper gimp gstreamer0.10-alsa gstreamer0.10-ffmpeg gstreamer0.10-plugins-ugly gstreamer0.10-plugins-good gstreamer0.10-plugins-bad inkscape libgtk2-perl libreoffice libreoffice-gtk shotwell simple-scan transmission-gtk xdg-user-dirs-gtk xul-ext-adblock-plus iceweasel icedove iceowl-extension browser-plugin-gnash pcmanfm menu-xdg planner quodlibet synaptic system-config-printer vlc xsane mythes-en-us hyphen-en-us hunspell-en-us leafpad shed nedit editra fotoxx xterm eterm e17 esound smplayer mplayer mplayer2 snappy wicd-gtk connman network-manager-gnome"
+additional_packages="rsyslog uboot-envtools uboot-mkimage file manpages man-db module-init-tools dhcp3-client netbase ifupdown iproute iputils-ping net-tools wget vim nano hdparm rsync bzip2 p7zip unrar unzip zip p7zip-full screen less usbutils psmisc strace info ethtool wireless-tools iw wpasupplicant python whois time ruby procps perl parted ftp gettext firmware-linux-free firmware-linux-nonfree firmware-realtek firmware-ralink firmware-linux firmware-brcm80211 firmware-atheros rcconf lrzsz libpam-modules util-linux" # IMPORTANT NOTE: All package names need to be seperated by a single space
+additional_desktop_packages="lxde"
 additional_dev_packages="git subversion build-essential autoconf automake make libtool xorg-dev xutils-dev libdrm-dev"
 
 

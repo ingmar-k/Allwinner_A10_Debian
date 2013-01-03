@@ -161,7 +161,7 @@ If your host system is not Ubuntu 10.XX based, this could lead to errors. Please
 
 	if [ $1 = "qemu-user-static" ]
 	then
-		sh -c "dpkg -l|grep "qemu-user-static"|grep "1."" >/dev/null
+		sh -c "dpkg -l|grep \"qemu-user-static\"|grep \"1.\"" >/dev/null
 		if [ $? = "0" ]
 		then
 			fn_my_echo "Sufficient version of package '${1}' found. Continueing..."
@@ -272,12 +272,12 @@ echo "#!/bin/bash
 /debootstrap/debootstrap --second-stage 2>>/deboostrap_stg2_errors.txt
 cd /root 2>>/deboostrap_stg2_errors.txt
 cat <<END > /etc/apt/sources.list 2>>/deboostrap_stg2_errors.txt
-deb http://ftp.de.debian.org/debian ${debian_target_version} main contrib non-free
-deb-src http://ftp.de.debian.org/debian ${debian_target_version} main contrib non-free
-deb http://ftp.debian.org/debian/ ${debian_target_version}-updates main contrib non-free
-deb-src http://ftp.debian.org/debian/ ${debian_target_version}-updates main contrib non-free
-deb http://security.debian.org/ ${debian_target_version}/updates main contrib non-free
-deb-src http://security.debian.org/ ${debian_target_version}/updates main contrib non-free
+deb ${debian_mirror_url} ${debian_target_version} ${debian_repositories}
+deb-src ${debian_mirror_url} ${debian_target_version} ${debian_repositories}
+deb ${debian_mirror_url} ${debian_target_version}-updates ${debian_repositories}
+deb-src ${debian_mirror_url} ${debian_target_version}-updates ${debian_repositories}
+deb http://security.debian.org/ ${debian_target_version}/updates ${debian_repositories}
+deb-src http://security.debian.org/ ${debian_target_version}/updates ${debian_repositories}
 END
 
 apt-get update
@@ -375,7 +375,7 @@ export LANG=C 2>>/deboostrap_stg2_errors.txt
 
 for k in ${locale_list}
 do
-	sed -i 's/# '${k}'/'${k}'/g' /etc/locale.gen 2>>/deboostrap_stg2_errors.txt	# enable locale
+	sed -i 's/# '\${k}'/'\${k}'/g' /etc/locale.gen # enable locale
 done
 
 locale-gen 2>>/deboostrap_stg2_errors.txt
@@ -672,6 +672,7 @@ END
 				./configure --prefix=/usr --x-includes=/usr/include --x-libraries=/usr/lib 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 9\" && echo \"Successfully ran the configuration for the xf86 driver.\"
 				make 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 10\" && echo \"Successfully ran the 'make' (xf86-video-mali) command.\"
 				make install 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 11\" && echo \"Successfully ran the 'make install' (xf86-video-mali) command.\"
+				cp -f ./xorg.conf /usr/share/X11/xorg.conf.d/99-mali400.conf && echo \"Successfully copied the 'xorg.conf' (xf86-video-mali).\"
 			fi
 		else
 			echo \"ERROR: Couldn't change into directory '/root/mali_2d_build/'!\" >>/post_debootstrap_errors.txt
@@ -921,7 +922,7 @@ compress_debian_rootfs()
 {
 fn_my_echo "Compressing the rootfs now!"
 
-mount |grep ${output_dir}/${output_filename}.img >/dev/null
+mount |grep ${output_dir}/${output_filename}.img 2>/dev/null
 if [ ! "$?" = "0" ]
 then 
 	fsck.ext4 -fy ${output_dir}/${output_filename}.img
@@ -1439,35 +1440,43 @@ apt_choice=\${1}
 package_list=\${2}
 update_choice=\${3}
 
-set -- \${package_list}
-
-while [ \$# -gt 0 ]
-do
-	if [ "\${update_choice}" = "upd" ] && [ ! "\${apt_get_update_done}" = "true" ]
-	then
-		/usr/bin/apt-get update
-		apt_get_update_done="true"
-	fi
 	if [ "\${apt_choice}" = "download" ]
 	then
-		/usr/bin/apt-get install -y -d \${1}
+		apt-get install -y -d \${2} 2>/apt_get_errors.txt
 	elif [ "\${apt_choice}" = "install" ]
 	then
-		/usr/bin/apt-get install -y \${1}
-	else
-		echo "ERROR: Parameter 1 should either be 'download' or 'install'.
-Invalid parameter '\${apt_choice}' passed to function. Exiting now!"
-		exit 91
+		apt-get install -y \${2} 2>/apt_get_errors.txt
 	fi
 	if [ "\$?" = "0" ]
 	then
-		echo "'\${1}' \${apt_choice}ed successfully!"
+		echo "Packages '\${2}' \${apt_choice}ed successfully!"
 	else
-		echo "ERROR while trying to \${apt_choice} package '\${1}'."
-		echo "ERROR while trying to \${apt_choice} package '\${1}'." >> /apt_helper_error.txt
+		set -- \${package_list}
+
+		while [ \$# -gt 0 ]
+		do
+			if [ "\${update_choice}" = "upd" ] && [ ! "\${apt_get_update_done}" = "true" ]
+			then
+				apt-get update
+				apt_get_update_done="true"
+			fi
+			if [ "\${apt_choice}" = "download" ]
+			then
+				apt-get install -y -d \${1} 2>/apt_get_errors.txt
+			elif [ "\${apt_choice}" = "install" ]
+			then
+				apt-get install -y \${1} 2>/apt_get_errors.txt
+			fi
+			if [ "\$?" = "0" ]
+			then
+				echo "'\${1}' \${apt_choice}ed successfully!"
+			else
+				echo "ERROR while trying to \${apt_choice} '\${1}'."
+			fi
+
+			shift
+		done
 	fi
-	shift
-done
 }
 END
 elif [ "${apt_choice}" = "download" ] || [ "${apt_choice}" = "install" ]
@@ -1475,33 +1484,45 @@ then
 	package_list=${2}
 	update_choice=${3}
 
-	set -- ${package_list}
+	if [ "${apt_choice}" = "download" ]
+	then
+		apt-get install -y -d ${2} 2>/apt_get_errors.txt
+	elif [ "${apt_choice}" = "install" ]
+	then
+		apt-get install -y ${2} 2>/apt_get_errors.txt
+	fi
+	if [ "$?" = "0" ]
+	then
+		fn_my_echo "List of packages '${2}' ${apt_choice}ed successfully!"
+	else
+		set -- ${package_list}
 
-	while [ $# -gt 0 ]
-	do
-		if [ "${update_choice}" = "upd" ] && [ ! "${apt_get_update_done}" = "true" ]
-		then
-			apt-get update
-			apt_get_update_done="true"
-		fi
-		if [ "${apt_choice}" = "download" ]
-		then
-			apt-get install -y -d ${1}
-		elif [ "${apt_choice}" = "install" ]
-		then
-			apt-get install -y ${1}
-		fi
-		if [ "$?" = "0" ]
-		then
-			echo "'${1}' \${apt_choice}ed successfully!"
-		else
-			echo "ERROR while trying to \${apt_choice} '${1}'."
-		fi
+		while [ $# -gt 0 ]
+		do
+			if [ "${update_choice}" = "upd" ] && [ ! "${apt_get_update_done}" = "true" ]
+			then
+				apt-get update
+				apt_get_update_done="true"
+			fi
+			if [ "${apt_choice}" = "download" ]
+			then
+				apt-get install -y -d ${1} 2>/apt_get_errors.txt
+			elif [ "${apt_choice}" = "install" ]
+			then
+				apt-get install -y ${1} 2>/apt_get_errors.txt
+			fi
+			if [ "$?" = "0" ]
+			then
+				fn_my_echo "'${1}' ${apt_choice}ed successfully!"
+			else
+				fn_my_echo "ERROR while trying to ${apt_choice} '${1}'."
+			fi
 
-		shift
-	done
+			shift
+		done
+	fi
 else
-	echo "ERROR: Parameter 1 should either be 'write_script' or 'download' or 'install'.
+	fn_my_echo "ERROR: Parameter 1 should either be 'write_script' or 'download' or 'install'.
 	Invalid parameter '${apt_choice}' passed to function. Exiting now!"
 	exit 91
 fi
