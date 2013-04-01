@@ -285,7 +285,8 @@ apt-get update
 mknod /dev/ttyS0 c 4 64	# for the serial console
 
 cat <<END > /etc/network/interfaces
-auto lo eth0
+#auto lo eth0
+auto lo
 iface lo inet loopback
 iface eth0 inet dhcp
 END
@@ -310,12 +311,12 @@ cat <<END > /etc/rc.local 2>>/deboostrap_stg2_errors.txt
 #
 # By default this script does nothing.
 
+/post_debootstrap_setup.sh 2>>/post_debootstrap_setup_log.txt && rm /post_debootstrap_setup.sh
+
 if [ -e /zram_setup.sh ]
 then
 	/zram_setup.sh 2>>/zram_setup_log.txt && rm /zram_setup.sh
 fi
-
-/post_debootstrap_setup.sh 2>>/setup_log.txt && rm /post_debootstrap_setup.sh
 
 exit 0
 END
@@ -484,7 +485,9 @@ fi
 
 if [ "${use_zram}" = "yes" ]
 then
+	fn_my_echo "Usage of ZRAM activated!"
 	echo "#!/bin/sh
+mv /etc/rc.local /etc/rc.local.bak
 cat <<END > /etc/rc.local 2>>/zram_setup_errors.txt
 #!/bin/sh -e
 #
@@ -499,15 +502,30 @@ cat <<END > /etc/rc.local 2>>/zram_setup_errors.txt
 #
 # By default this script does nothing.
 
-modprobe ${zram_kernel_module_name} zram_num_devices=1
+modprobe ${zram_kernel_module_name} num_devices=1
 sleep 2
 echo ${zram_size_B} > /sys/block/zram0/disksize
 mkswap /dev/zram0
 swapon -p 100 /dev/zram0
+
+if [ -e /dev/ump ]
+then
+	chmod 777 /dev/ump
+fi
+
+if [ -e /dev/mali ]
+then
+	chmod 777 /dev/mali
+fi
+
+echo 0 > /sys/class/graphics/fb0/blank # disable framebuffer blanking
+echo 0 > /sys/module/8192cu/parameters/rtw_power_mgnt # disable wlan power management
+
 exit 0
 END
-
+chmod +x /etc/rc.local
 exit 0" > ${output_dir}/mnt_debootstrap/zram_setup.sh
+#cp ${output_dir}/mnt_debootstrap/zram_setup.sh ${output_dir}/mnt_debootstrap/zram_setup.sh.bak
 chmod +x ${output_dir}/mnt_debootstrap/zram_setup.sh
 fi
 
@@ -594,40 +612,7 @@ disp
 mali
 mali_drm
 END
-	cat << END > /etc/X11/xorg.conf
-# X.Org X server configuration file for xfree86-video-mali
-Section \"Device\"
-        Identifier \"Mali FBDEV\"
-        Driver  \"mali\"
-        Option  \"fbdev\"            \"/dev/fb0\"
-        Option  \"DRI\"             \"false\"
-        Option  \"DRI2\"             \"false\"
-        Option  \"DRI2\"             \"false\"
-        Option  \"DRI2_PAGE_FLIP\"   \"false\"
-        Option  \"DRI2_WAIT_VSYNC\"  \"false\"
-	Option \"Debug\" \"true\"
-EndSection
-Section \"Module\"
-	Disable \"dri\"
-	Disable \"glx\"
-EndSection
-Section \"Monitor\"
-	Identifier \"Monitor0\"
-EndSection
-Section \"Screen\"
-        Identifier      \"Mali Screen\"
-        Device          \"Mali FBDEV\"
-        Monitor		\"Monitor0\"
-		SubSection \"Display\"
-			Viewport 0 0
-			Depth	24
-			# Modes	\"1920x1200\"
-		EndSubSection
-EndSection
-Section \"DRI\"
-        Mode 0666
-EndSection
-END
+	
 	if [ \"${mali_graphics_choice}\" = \"copy\" ]
 	then
 		echo \"Downloaded mali graphics driver. Driver should already work. Please check!\"
@@ -638,14 +623,6 @@ END
 		if [ \"\${?}\" = \"0\" ]
 		then
 			echo \"Successfully changed into directory '/root/mali_2d_build'.\"
-			cd /root/mali_2d_build/mali-libs 2>>/mali_drv_compile.txt
-			if [ \"\${?}\" = \"0\" ]
-			then
-				echo \"Successfully changed into directory '/root/mali_2d_build/mali-libs/'.\"
-				make VERSION=${xf86_version} ABI=armhf x11 2>>/mali_drv_compile.txt && xserver_build_log=\"1\" && echo \"Successfully ran the command 'make VERSION=${xf86_version} ABI=armhf x11'.\"
-				make headers 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 2\" && echo \"Successfully ran 'make headers'.\"
-				cp -rf ./lib/${xf86_version}/armhf/x11/*.so /usr/lib/ 2>>/mali_drv_compile.txt && echo \"Successfully copied the libraries from './lib/${xf86_version}/armhf/x11/' to '/usr/lib/'.\"
-			fi
 			cd /root/mali_2d_build/libdri2 2>>/mali_drv_compile.txt
 			if [ \"\${?}\" = \"0\" ]
 			then
@@ -655,14 +632,19 @@ END
 				make 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 5\" && echo \"Successfully ran the 'make' (libdri2) command.\"
 				make install 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 6\" && echo \"Successfully ran the 'make install' (libdri2) command.\"
 			fi
-			cd /root/mali_2d_build/libump 2>>/mali_drv_compile.txt
+			cd /root/mali_2d_build/sunxi-mali 2>>/mali_drv_compile.txt
 			if [ \"\${?}\" = \"0\" ]
 			then
-				echo \"Successfully changed into directory '/root/mali_2d_build/libump/'.\"
-				mkdir /usr/include/ump 2>>/mali_drv_compile.txt && echo \"Successfully created the '/usr/include/ump' directory.\"
-				cp -rf ./include/ump/* /usr/include/ump/ 2>>/mali_drv_compile.txt && echo \"Successfully copied all ump files to '/usr/include/ump/'.\"
-				make 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 7\" && echo \"Successfully ran the 'make' (ump) command.\"
-				cp -f ./libUMP.so /lib/libUMP.so 2>>/mali_drv_compile.txt && echo \"Successfully copied the created 'libUMP.so' to '/lib'.\"
+				echo \"Changed directory to 'sunxi-mali'.\"
+				make config VERSION=${mali_module_version} ABI=armhf EGL_TYPE=x11
+				make
+				make install 2>>/mali_drv_compile.txt && echo \"Successfully ran the 'make install' (sunxi-mali) command.\"
+				#cp -f ./xorg.conf /etc/X11/ && echo \"Successfully copied the 'xorg.conf' (xf86-video-mali).\"
+				cd lib/sunxi-mali-proprietary
+				make VERSION=${mali_module_version} ABI=armhf EGL_TYPE=x11
+				make install
+				cd ../../test
+				make test
 			fi
 			cd /root/mali_2d_build/xf86-video-mali 2>>/mali_drv_compile.txt
 			if [ \"\${?}\" = \"0\" ]
@@ -672,7 +654,7 @@ END
 				./configure --prefix=/usr --x-includes=/usr/include --x-libraries=/usr/lib 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 9\" && echo \"Successfully ran the configuration for the xf86 driver.\"
 				make 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 10\" && echo \"Successfully ran the 'make' (xf86-video-mali) command.\"
 				make install 2>>/mali_drv_compile.txt && xserver_build_log=\"$xserver_build_log 11\" && echo \"Successfully ran the 'make install' (xf86-video-mali) command.\"
-				cp -f ./xorg.conf /usr/share/X11/xorg.conf.d/99-mali400.conf && echo \"Successfully copied the 'xorg.conf' (xf86-video-mali).\"
+				cp -f ./xorg.conf /etc/X11/xorg.conf && echo \"Successfully copied the 'xorg.conf' (xf86-video-mali).\"
 			fi
 		else
 			echo \"ERROR: Couldn't change into directory '/root/mali_2d_build/'!\" >>/post_debootstrap_errors.txt
@@ -683,8 +665,6 @@ END
 			echo \"Xserver mali400 driver build process completed successfully!\"
 			echo \"Xserver mali400 driver build process completed successfully!\" >> /mali_drv_compile.txt
 		fi
-		#cp ./xorg.conf /usr/share/X11/xorg.conf.d/99-mali400.conf && echo \"Successfully copied the 'xorg.conf' for the xf86 driver.\"
-		# dont forget to 'chmod 777 /dev/ump' and 'chmod 777 /dev/mali' on each boot, or create a rule for udev for this.
 		
 		cat <<END > /etc/rc.local 2>>/deboostrap_stg2_errors.txt
 #!/bin/sh -e
@@ -702,10 +682,8 @@ END
 
 if [ -e /zram_setup.sh ]
 then
-	/zram_setup.sh 2>>/zram_setup_log.txt && rm /zram_setup.sh
+	/zram_setup.sh 2>>/zram_setup_error.txt && rm /zram_setup.sh
 fi
-
-/setup.sh 2>>/setup_log.txt && rm /setup.sh
 
 if [ -e /dev/ump ]
 then
@@ -756,92 +734,14 @@ then
 	mkdir -p ${output_dir}/mnt_debootstrap/root/mali_2d_build && fn_my_echo "Directory for graphics driver build successfully created."
 	get_n_check_file "${mali_xserver_2d_git}" "xf86-video-mali" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
 	get_n_check_file "${mali_2d_libdri2_git}" "libdri2" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
-	get_n_check_file "${mali_2d_libump_git}" "libump" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
-	grep 'arm-none-linux-gnueabi-' ${output_dir}/mnt_debootstrap/root/mali_2d_build/libump/Makefile
-	if [ "$?" = "0" ] 
-	then
-		mv ${output_dir}/mnt_debootstrap/root/mali_2d_build/libump/Makefile ${output_dir}/mnt_debootstrap/root/mali_2d_build/libump/Makefile.bak
-		get_n_check_file "https://raw.github.com/linux-sunxi/libump/r3p0-04rel0/Makefile" "libump_Makefile_fix" "${output_dir}/mnt_debootstrap/root/mali_2d_build/libump/"
-	fi
-	get_n_check_file "${mali_2d_misc_libs_git}" "mali-libs" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
-	if [ -d ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src ]
-	then
-		if [ ! -e ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src/umplock/umplock_ioctl.h ]
-		then
-			fn_my_echo "Adding fix for 'xf86-video-mali' release 'r3p1' to sources downloaded via git."
-			cd ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src
-			mkdir ${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src/umplock
-			cat<<END>${output_dir}/mnt_debootstrap/root/mali_2d_build/xf86-video-mali/src/umplock/umplock_ioctl.h
-/*
-* Copyright (C) 2012 ARM Limited. All rights reserved.
-*
-* This program is free software and is provided to you under the terms of the GNU General Public License version 2
-* as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
-*
-* A copy of the licence is included with the program, and can also be obtained from Free Software
-* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-*/
-
-#ifndef __UMPLOCK_IOCTL_H__
-#define __UMPLOCK_IOCTL_H__
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/*#include 
-#include 
-*/
-#ifndef __user
-#define __user
-#endif
-
-
-/**
-* @file umplock_ioctl.h
-* This file describes the interface needed to use the Linux device driver.
-* The interface is used by the userpace Mali DDK.
-*/
-
-typedef enum
-{
-    _LOCK_ACCESS_RENDERABLE = 1,
-    _LOCK_ACCESS_TEXTURE,
-    _LOCK_ACCESS_CPU_WRITE,
-    _LOCK_ACCESS_CPU_READ,
-} _lock_access_usage;
-
-typedef struct _lock_item_s
-
-{
-    unsigned int secure_id;
-    _lock_access_usage usage;
-} _lock_item_s;
-
-
-#define LOCK_IOCTL_GROUP 0x91
-
-#define _LOCK_IOCTL_CREATE_CMD  0   /* create kernel lock item        */
-#define _LOCK_IOCTL_PROCESS_CMD 1   /* process kernel lock item       */
-#define _LOCK_IOCTL_RELEASE_CMD 2   /* release kernel lock item       */
-#define _LOCK_IOCTL_ZAP_CMD     3   /* clean up all kernel lock items */
-
-#define LOCK_IOCTL_MAX_CMDS    4
-
-#define LOCK_IOCTL_CREATE  _IOW( LOCK_IOCTL_GROUP, _LOCK_IOCTL_CREATE_CMD,  _lock_item_s )
-#define LOCK_IOCTL_PROCESS _IOW( LOCK_IOCTL_GROUP, _LOCK_IOCTL_PROCESS_CMD, _lock_item_s )
-#define LOCK_IOCTL_RELEASE _IOW( LOCK_IOCTL_GROUP, _LOCK_IOCTL_RELEASE_CMD, _lock_item_s )
-#define LOCK_IOCTL_ZAP     _IO ( LOCK_IOCTL_GROUP, _LOCK_IOCTL_ZAP_CMD )
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* __UMPLOCK_IOCTL_H__ */
-END
-		fi
-	fi	
+	#get_n_check_file "${mali_2d_libump_git}" "libump" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
+	get_n_check_file "${mali_2d_mali_git}" "mali" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
+	cd ${output_dir}/mnt_debootstrap/root/mali_2d_build/sunxi-mali
+	git submodule init
+	git submodule update
+	get_n_check_file "${mali_2d_proprietary_git}" "mali-proprietary" "${output_dir}/mnt_debootstrap/root/mali_2d_build/sunxi-mali/lib/"
 fi
+
 
 if [ "${i2c_hwclock}" = "yes" ]
 then

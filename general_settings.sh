@@ -13,9 +13,9 @@
 
 ### These settings MUST be checked ###
 
-host_os="Debian" # Debian or Ubuntu (YOU NEED TO EDIT THIS!)
+host_os="Ubuntu" # Debian or Ubuntu (YOU NEED TO EDIT THIS!)
 nameserver_addr="192.168.2.1" # "141.82.48.1" (YOU NEED TO EDIT THIS!)
-output_dir_base="/home/${USERNAME}/Allwinner_A10_debian_build" # where to put the files in general (YOU NEED TO EDIT THIS!) 
+output_dir_base="/home/tester/Allwinner_A10_debian_build" # where to put the files in general (YOU NEED TO EDIT THIS!) 
 root_password="root"
 username="tester"  # Name of user for the graphical login
 user_password="tester"
@@ -23,7 +23,7 @@ user_password="tester"
 
 ### These settings are for experienced users ###
 
-base_sys_cache_tarball="debian_wheezy_minbase.tgz"
+base_sys_cache_tarball="debian_sid_minbase.tgz"
 
 std_locale="en_US.UTF-8" # initial language setting for console (alternatively for example 'en_US.UTF-8')'
 
@@ -33,7 +33,7 @@ debian_mirror_url="http://ftp.de.debian.org/debian/" # mirror for debian
 
 debian_repositories="main contrib non-free"
 
-debian_target_version="wheezy" # The version of debian that you want to build (ATM, 'wheezy' and 'sid' are supported)
+debian_target_version="sid" # The version of debian that you want to build (ATM, 'wheezy' and 'sid' are supported)
 
 bootloader_bin_1="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/sunxi-spl.bin" # bootloader binary
 bootloader_bin_2="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/u-boot.bin" # bootloader binary
@@ -41,7 +41,7 @@ bootloader_script="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/
 
 qemu_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/vmlinuz_Ubuntu_natty_armversatile.tar.bz2" # qemu kernel file name
 
-std_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/kernel_3.4.19-HSA-hackberry-1.2_1355778012.tar.bz2" # standard kernel file name
+std_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/3.0.62/3.0.62-hsa-1.0_1364762093.tar.bz2" # standard kernel file name
  
 tar_format="bz2" # bz2(=bzip2) or gz(=gzip)
 
@@ -61,11 +61,11 @@ apt_prerequisites_ubuntu="git debootstrap binfmt-support qemu qemu-system qemu-k
 
 deb_add_packages="apt-utils,dialog,locales,udev,dictionaries-common,aspell" # extra packages to install via debotstrap
 
-clean_tmp_files="no" # delete the temporary files, when the build process is done?
+clean_tmp_files="yes" # delete the temporary files, when the build process is done?
 
 create_disk="no" # create a bootable SD-card after building the rootfs?
 
-use_cache="no" # use or don't use caching for the apt and debootstrap processes (caching can speed things up, but it can also lead to problems)
+use_cache="yes" # use or don't use caching for the apt and debootstrap processes (caching can speed things up, but it can also lead to problems)
 
 
 ####################################
@@ -76,11 +76,12 @@ use_cache="no" # use or don't use caching for the apt and debootstrap processes 
 ### Additional Software ###
 
 additional_packages="rsyslog uboot-envtools uboot-mkimage file manpages man-db module-init-tools dhcp3-client netbase ifupdown iproute iputils-ping net-tools wget vim nano hdparm rsync bzip2 p7zip unrar unzip zip p7zip-full screen less usbutils psmisc strace info ethtool wireless-tools iw wpasupplicant python whois time ruby procps perl parted ftp gettext firmware-linux-free firmware-linux-nonfree firmware-realtek firmware-ralink firmware-linux firmware-brcm80211 firmware-atheros rcconf lrzsz libpam-modules util-linux" # IMPORTANT NOTE: All package names need to be seperated by a single space
-additional_desktop_packages="lxde"
+additional_desktop_packages="task-lxde-desktop thunar-archive-plugin filezilla geany geany-plugins libreoffice-l10n-de iceweasel-l10n-de icedove icedove-l10n-de iceowl iceowl-l10n-de atool ark xar xarchiver e17 eterm python-edje esound wmdiskmon wmcpuload vlc vlc-plugin-esd gstreamer0.10-esd enna wmmemmon"
 additional_dev_packages="git subversion build-essential autoconf automake make libtool xorg-dev xutils-dev libdrm-dev"
 
 
 ### ARM Mali400 graphics driver settings ###
+mali_module_version="r3p0"
 
 mali_graphics_choice="build" # copy|build|none (copy=use a precompiled, downloaded driver | build= install dev-packages and sources and try to compile the driver | none= no driver and no graphical desktop)
 mali_graphics_opengl="no" # Use or do not use binary/precompiled OpenGL libraries
@@ -88,11 +89,10 @@ mali_graphics_opengl="no" # Use or do not use binary/precompiled OpenGL librarie
 mali_2d_bin="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/xserver_mali/xserver_mali.tar.bz2" # precompiled xserver driver
 mali_opengl_bin="http://dl.linux-sunxi.org/mali/lib-r3p0-04rel0.tar.gz" # precompiled opengl libraries for mali
 
-mali_xserver_2d_git="https://github.com/linux-sunxi/xf86-video-mali.git -b r3p1-01rel1" # the "-b r3p1-01rel1" specifies the branch to get
+mali_xserver_2d_git="https://github.com/linux-sunxi/xf86-video-mali.git -b r3p0-04rel0" # the "-b r3p1-01rel1" specifies the branch to get
 mali_2d_libdri2_git="git://github.com/robclark/libdri2.git"
-mali_2d_libump_git="https://github.com/linux-sunxi/libump.git -b r3p1-01rel1"
-mali_2d_misc_libs_git="https://github.com/linux-sunxi/mali-libs.git"
-
+mali_2d_mali_git="https://github.com/linux-sunxi/sunxi-mali.git"
+mali_2d_proprietary_git="https://github.com/linux-sunxi/sunxi-mali-proprietary.git"
 
 ### Settings for compressed SWAP space in RAM ### 
 
