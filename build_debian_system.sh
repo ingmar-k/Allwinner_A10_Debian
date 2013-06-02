@@ -37,7 +37,7 @@ then
 	elif [ "$2" = "build" ]
 	then
 		echo "Cleaning the build directory/directories, now!"
-		rm -rf ${output_dir_base}/build_*
+		rm -rf ${output_dir_base}/build_* 2>>${output_dir_base}/clean_errors.txt
 	elif [ "$2" = "all" ]
 	then
 		echo "Cleaning both cache and build directories, now!"

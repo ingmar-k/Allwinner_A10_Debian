@@ -101,9 +101,40 @@ fn_my_echo()
 }
 
 
+# Description: Function that checks if the needed internet connectivity is there.
+check_connectivity()
+{
+fn_my_echo "Checking internet connectivity, which is mandatory for the next step."
+
+for i in debian.org google.com kernel.org
+do
+	ping -c 3 ${i}
+	if [ "$?" = "0" ]
+	then 
+		fn_my_echo "Pinging '${i}' worked. Internet connectivity seems fine."
+		break
+	else
+		fn_my_echo "ERROR! Pinging '${i}' did NOT work. Internet connectivity seems bad or you are not connected.
+Please check, if in doubt!"
+		if [ "${i}" = "kernel.org" ]
+		then
+			fn_my_echo "ERROR! All 3 ping attempts failed! You do not appear to be connected to the internet.
+Exiting now!"
+			exit 97
+		else	
+			continue
+		fi
+	fi
+done
+}
+
+
 # Description: See if the needed packages are installed and if the versions are sufficient
 check_n_install_prerequisites()
 {
+	
+check_connectivity
+
 fn_my_echo "Installing some packages, if needed."
 if [ "${host_os}" = "Debian" ]
 then
@@ -115,15 +146,6 @@ else
 	fn_my_echo "OS-Type '${host_os}' not correct.
 Please run 'build_debian_system.sh --help' for more information"
 	exit 12
-fi
-
-fn_my_echo "Running 'apt-get update' to get the latest package dependencies."
-if [ "$?" = "0" ]
-then
-	fn_my_echo "'apt-get update' ran successfully! Continuing..."
-else
-	fn_my_echo "ERROR while trying to run 'apt-get update'. Exiting now."
-	exit 13
 fi
 
 set -- ${apt_prerequisites}
@@ -139,8 +161,16 @@ do
 Trying to install it now!"
 		if [ ! "${apt_get_update_done}" = "true" ]
 		then
+			fn_my_echo "Running 'apt-get update' to get the latest package dependencies."
 			apt-get update
-			apt_get_update_done="true"
+			if [ "$?" = "0" ]
+			then
+				fn_my_echo "'apt-get update' ran successfully! Continuing..."
+				apt_get_update_done="true"
+			else
+				fn_my_echo "ERROR while trying to run 'apt-get update'. Exiting now."
+				exit 13
+			fi
 		fi
 		apt-get install -y ${1}
 		if [ "$?" = "0" ]
@@ -205,22 +235,22 @@ else
 fi
 
 fn_my_echo "Creating the directory to mount the temporary filesystem."
-mkdir -p ${output_dir}/mnt_debootstrap
+mkdir -p ${qemu_mnt_dir}
 if [ "$?" = "0" ]
 then
-	fn_my_echo "Directory '${output_dir}/mnt_debootstrap' successfully created."
+	fn_my_echo "Directory '${qemu_mnt_dir}' successfully created."
 else
-	fn_my_echo "ERROR while trying to create the directory '${output_dir}/mnt_debootstrap'. Exiting now!"
+	fn_my_echo "ERROR while trying to create the directory '${qemu_mnt_dir}'. Exiting now!"
 	exit 18
 fi
 
 fn_my_echo "Now mounting the temporary filesystem."
-mount ${output_dir}/${output_filename}.img ${output_dir}/mnt_debootstrap -o loop
+mount ${output_dir}/${output_filename}.img ${qemu_mnt_dir} -o loop
 if [ "$?" = "0" ]
 then
-	fn_my_echo "Filesystem correctly mounted on '${output_dir}/mnt_debootstrap'."
+	fn_my_echo "Filesystem correctly mounted on '${qemu_mnt_dir}'."
 else
-	fn_my_echo "ERROR while trying to mount the filesystem on '${output_dir}/mnt_debootstrap'. Exiting now!"
+	fn_my_echo "ERROR while trying to mount the filesystem on '${qemu_mnt_dir}'. Exiting now!"
 	exit 19
 fi
 
@@ -231,6 +261,9 @@ fn_my_echo "Function 'create_n_mount_temp_image_file' DONE."
 # Description: Run the debootstrap steps, like initial download, extraction plus configuration and setup
 do_debootstrap()
 {
+	
+check_connectivity
+	
 fn_my_echo "Running first stage of debootstrap now."
 
 if [ "${use_cache}" = "yes" ]
@@ -240,28 +273,28 @@ then
 		if [ -e "${output_dir_base}/cache/${base_sys_cache_tarball}" ]
 		then
 			fn_my_echo "Using debian debootstrap tarball '${output_dir_base}/cache/${base_sys_cache_tarball}' from cache."
-			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir}/mnt_debootstrap/" "${debian_mirror_url}"
+			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${qemu_mnt_dir}/" "${debian_mirror_url}"
 		else
 			fn_my_echo "No debian debootstrap tarball found in cache. Creating one now!"
 			debootstrap --foreign --make-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir_base}/cache/tmp/" "${debian_mirror_url}"
 			sleep 3
-			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${output_dir}/mnt_debootstrap/" "${debian_mirror_url}"
+			debootstrap --foreign --unpack-tarball="${output_dir_base}/cache/${base_sys_cache_tarball}" --include=${deb_add_packages} --verbose --arch=armhf --variant=minbase "${debian_target_version}" "${qemu_mnt_dir}/" "${debian_mirror_url}"
 		fi
 	fi
 else
 	fn_my_echo "Not using cache, according to the settings. Thus running debootstrap without creating a tarball."
-	debootstrap --include=${deb_add_packages} --verbose --arch armhf --variant=minbase --foreign "${debian_target_version}" "${output_dir}/mnt_debootstrap" "${debian_mirror_url}"
+	debootstrap --include=${deb_add_packages} --verbose --arch armhf --variant=minbase --foreign "${debian_target_version}" "${qemu_mnt_dir}" "${debian_mirror_url}"
 fi
 
 modprobe binfmt_misc
 
-cp /usr/bin/qemu-arm-static ${output_dir}/mnt_debootstrap/usr/bin
+cp /usr/bin/qemu-arm-static ${qemu_mnt_dir}/usr/bin
 
-mkdir -p ${output_dir}/mnt_debootstrap/dev/pts
+mkdir -p ${qemu_mnt_dir}/dev/pts
 
 fn_my_echo "Mounting both /dev/pts and /proc on the temporary filesystem."
-mount devpts ${output_dir}/mnt_debootstrap/dev/pts -t devpts
-mount -t proc proc ${output_dir}/mnt_debootstrap/proc
+mount devpts ${qemu_mnt_dir}/dev/pts -t devpts
+mount -t proc proc ${qemu_mnt_dir}/proc
 
 fn_my_echo "Entering chroot environment NOW!"
 
@@ -269,35 +302,44 @@ apt_get_helper "write_script"
 
 fn_my_echo "Starting the second stage of debootstrap now."
 echo "#!/bin/bash
-/debootstrap/debootstrap --second-stage 2>>/deboostrap_stg2_errors.txt
-cd /root 2>>/deboostrap_stg2_errors.txt
-cat <<END > /etc/apt/sources.list 2>>/deboostrap_stg2_errors.txt
+/debootstrap/debootstrap --second-stage 2>>/debootstrap_stg2_errors.txt
+cd /root 2>>/debootstrap_stg2_errors.txt
+
+cat <<END > /etc/apt/sources.list 2>>/debootstrap_stg2_errors.txt
 deb ${debian_mirror_url} ${debian_target_version} ${debian_repositories}
 deb-src ${debian_mirror_url} ${debian_target_version} ${debian_repositories}
+END
+
+if [ \"${debian_target_version}\" = \"stable\" ] || [ \"${debian_target_version}\" = \"wheezy\" ] || [ \"${debian_target_version}\" = \"testing\" ] || [ \"${debian_target_version}\" = \"jessie\" ]
+then
+	cat <<END >>/etc/apt/sources.list 2>>/debootstrap_stg2_errors.txt
 deb ${debian_mirror_url} ${debian_target_version}-updates ${debian_repositories}
 deb-src ${debian_mirror_url} ${debian_target_version}-updates ${debian_repositories}
 deb http://security.debian.org/ ${debian_target_version}/updates ${debian_repositories}
 deb-src http://security.debian.org/ ${debian_target_version}/updates ${debian_repositories}
 END
+fi
 
-apt-get update
+apt-get update 2>>/debootstrap_stg2_errors.txt
 
-mknod /dev/ttyS0 c 4 64	# for the serial console
+mknod /dev/ttyS0 c 4 64	# for the serial console 2>>/debootstrap_stg2_errors.txt
+mknod /dev/mmcblk0 b 179 0 2>>/debootstrap_stg2_errors.txt
+#mknod /dev/mmcblk0p1 b 179 1 2>>/debootstrap_stg2_errors.txt
 
-cat <<END > /etc/network/interfaces
+cat <<END > /etc/network/interfaces 2>>/debootstrap_stg2_errors.txt
 #auto lo eth0
 auto lo
 iface lo inet loopback
 iface eth0 inet dhcp
 END
 
-echo A10-debian > /etc/hostname 2>>/deboostrap_stg2_errors.txt
+echo A10-debian > /etc/hostname 2>>/debootstrap_stg2_errors.txt
 
-echo \"127.0.0.1 localhost\" >> /etc/hosts 2>>/deboostrap_stg2_errors.txt
-echo \"127.0.0.1 A10-debian\" >> /etc/hosts 2>>/deboostrap_stg2_errors.txt
-echo \"nameserver ${nameserver_addr}\" > /etc/resolv.conf 2>>/deboostrap_stg2_errors.txt
+echo \"127.0.0.1 localhost\" >> /etc/hosts 2>>/debootstrap_stg2_errors.txt
+echo \"127.0.0.1 A10-debian\" >> /etc/hosts 2>>/debootstrap_stg2_errors.txt
+echo \"nameserver ${nameserver_addr}\" > /etc/resolv.conf 2>>/debootstrap_stg2_errors.txt
 
-cat <<END > /etc/rc.local 2>>/deboostrap_stg2_errors.txt
+cat <<END > /etc/rc.local 2>>/debootstrap_stg2_errors.txt
 #!/bin/sh -e
 #
 # rc.local
@@ -321,9 +363,9 @@ fi
 exit 0
 END
 rm /debootstrap_pt1.sh
-exit" > ${output_dir}/mnt_debootstrap/debootstrap_pt1.sh
-chmod +x ${output_dir}/mnt_debootstrap/debootstrap_pt1.sh
-/usr/sbin/chroot ${output_dir}/mnt_debootstrap /bin/bash /debootstrap_pt1.sh 2>${output_dir}/debootstrap_pt1_errors.txt
+exit" > ${qemu_mnt_dir}/debootstrap_pt1.sh
+chmod +x ${qemu_mnt_dir}/debootstrap_pt1.sh
+/usr/sbin/chroot ${qemu_mnt_dir} /bin/bash /debootstrap_pt1.sh 2>${output_dir}/debootstrap_pt1_errors.txt
 
 if [ "$?" = "0" ]
 then
@@ -337,10 +379,10 @@ if [ "${use_cache}" = "yes" ]
 then
 	if [ -e ${output_dir_base}/cache/additional_packages.tar.gz ]
 	then
-		if [ ! "${mali_graphics_choice}" = "copy" ] && [ ! "${mali_graphics_choice}" = "build" ] 
+		if [ "${mali_graphics_choice}" = "none" ] #[ ! "${mali_graphics_choice}" = "copy" ] && [ ! "${mali_graphics_choice}" = "build" ] 
 		then
 			fn_my_echo "Extracting the additional packages 'additional_packages.tar.gz' from cache. now."
-			tar_all extract "${output_dir_base}/cache/additional_packages.tar.gz" "${output_dir}/mnt_debootstrap/var/cache/apt/" 
+			tar_all extract "${output_dir_base}/cache/additional_packages.tar.gz" "${qemu_mnt_dir}/var/cache/apt/" 
 		fi
 	elif [ ! -e "${output_dir}/cache/additional_packages.tar.gz" ]
 	then
@@ -350,8 +392,8 @@ then
 	if [ -e ${output_dir_base}/cache/additional_desktop_packages.tar.gz ] && [ "${mali_graphics_choice}" = "copy" ]
 	then
 		fn_my_echo "Extracting the additional desktop packages 'additional_desktop_packages.tar.gz' from cache. now."
-		tar_all extract "${output_dir_base}/cache/additional_desktop_packages.tar.gz" "${output_dir}/mnt_debootstrap/var/cache/apt/"
-	elif [ ! -e "${output_dir}/cache/additional_desktop_packages.tar.gz" ] && [ ! "${mali_graphics_choice}" = "copy" ]
+		tar_all extract "${output_dir_base}/cache/additional_desktop_packages.tar.gz" "${qemu_mnt_dir}/var/cache/apt/"
+	elif [ ! -e "${output_dir}/cache/additional_desktop_packages.tar.gz" ] && [ "${mali_graphics_choice}" = "build" ] #[ ! "${mali_graphics_choice}" = "copy" ]
 	then
 		add_desk_pack_create="yes"
 	fi
@@ -359,7 +401,7 @@ then
 	if [ -e ${output_dir_base}/cache/additional_dev_packages.tar.gz ] && [ "${mali_graphics_choice}" = "build" ]
 	then
 		fn_my_echo "Extracting the additional dev packages 'additional_dev_packages.tar.gz' from cache. now."
-		tar_all extract "${output_dir_base}/cache/additional_dev_packages.tar.gz" "${output_dir}/mnt_debootstrap/var/cache/apt/"
+		tar_all extract "${output_dir_base}/cache/additional_dev_packages.tar.gz" "${qemu_mnt_dir}/var/cache/apt/"
 	elif [ ! -e "${output_dir}/cache/additional_dev_packages.tar.gz" ] && [ "${mali_graphics_choice}" = "build" ]
 	then
 		add_dev_pack_create="yes"
@@ -367,23 +409,23 @@ then
 fi
 
 	
-mount devpts ${output_dir}/mnt_debootstrap/dev/pts -t devpts
-mount -t proc proc ${output_dir}/mnt_debootstrap/proc
+mount devpts ${qemu_mnt_dir}/dev/pts -t devpts
+mount -t proc proc ${qemu_mnt_dir}/proc
 
 echo "#!/bin/bash
 source apt_helper.sh
-export LANG=C 2>>/deboostrap_stg2_errors.txt
+export LANG=C 2>>/debootstrap_stg2_errors.txt
 
 for k in ${locale_list}
 do
 	sed -i 's/# '\${k}'/'\${k}'/g' /etc/locale.gen # enable locale
 done
 
-locale-gen 2>>/deboostrap_stg2_errors.txt
+locale-gen 2>>/debootstrap_stg2_errors.txt
 
-export LANG=${std_locale} 2>>/deboostrap_stg2_errors.txt	# language settings
-export LC_ALL=${std_locale} 2>>/deboostrap_stg2_errors.txt
-export LANGUAGE=${std_locale} 2>>/deboostrap_stg2_errors.txt
+export LANG=${std_locale} 2>>/debootstrap_stg2_errors.txt	# language settings
+export LC_ALL=${std_locale} 2>>/debootstrap_stg2_errors.txt
+export LANGUAGE=${std_locale} 2>>/debootstrap_stg2_errors.txt
 
 apt_get_helper \"download\" \"${additional_packages}\"
 
@@ -396,19 +438,39 @@ then
 	apt_get_helper \"download\" \"${additional_dev_packages}\"
 fi
 
-cat <<END > /etc/fstab 2>>/deboostrap_stg2_errors.txt
+if [ \"${compile_accel_vlc}\" = \"yes\" ]
+then
+	apt_get_helper \"dep_download\" \"vlc\"
+fi
+
+if [ \"${compile_accel_xbmc}\" = \"yes\" ]
+then
+	apt_get_helper \"dep_download\" \"xbmc\"
+	apt_get_helper \"download\" \"${xbmc_prereq}\"
+fi
+
+
+dd if=/dev/zero of=/swapfile bs=1024 count=1048576   ### 512MB swapfile
+mkswap /swapfile
+chown root:root /swapfile
+chmod 0600 /swapfile
+
+cat <<END > /etc/fstab 2>>/debootstrap_stg2_errors.txt
 # /etc/fstab: static file system information.
 #
 # <file system> <mount point>   <type>  <options>       <dump>  <pass>
 /dev/root	/	ext4	noatime,errors=remount-ro	0	1
-/dev/mmcblk0p3	none	swap	defaults	0	0
+#/dev/mmcblk0p3	none	swap	defaults	0	0
+/swapfile swap swap defaults 0 0
+
+
 END
 
-echo 'T0:2345:respawn:/sbin/getty ttyS0 115200 vt102' >> /etc/inittab 2>>/deboostrap_stg2_errors.txt	# enable serial consoles
+echo '#T0:2345:respawn:/sbin/mingetty ttyS0 115200 vt102' >> /etc/inittab 2>>/debootstrap_stg2_errors.txt	# enable serial consoles
 rm /debootstrap_pt2.sh
-exit" > ${output_dir}/mnt_debootstrap/debootstrap_pt2.sh
-chmod +x ${output_dir}/mnt_debootstrap/debootstrap_pt2.sh
-/usr/sbin/chroot ${output_dir}/mnt_debootstrap /bin/bash /debootstrap_pt2.sh 2>${output_dir}/debootstrap_pt2_errors.txt
+exit" > ${qemu_mnt_dir}/debootstrap_pt2.sh
+chmod +x ${qemu_mnt_dir}/debootstrap_pt2.sh
+/usr/sbin/chroot ${qemu_mnt_dir} /bin/bash /debootstrap_pt2.sh 2>${output_dir}/debootstrap_pt2_errors.txt
 
 if [ "$?" = "0" ]
 then
@@ -425,10 +487,10 @@ fi
 
 if [ "${add_pack_create}" = "yes" ]
 then
-	if  [ ! "${mali_graphics_choice}" = "copy" ] && [ ! "${mali_graphics_choice}" = "build" ]   
+	if  [ "${mali_graphics_choice}" = "none" ] #[ ! "${mali_graphics_choice}" = "copy" ] && [ ! "${mali_graphics_choice}" = "build" ]   
 	then
-		fn_my_echo "Compress choice 1."
-		cd ${output_dir}/mnt_debootstrap/var/cache/apt/
+		fn_my_echo "Compress choice 1. Only additional packages."
+		cd ${qemu_mnt_dir}/var/cache/apt/
 		tar_all compress "${output_dir_base}/cache/additional_packages.tar.gz" .
 		cd ${output_dir}
 	fi
@@ -436,22 +498,20 @@ fi
 
 if [ "${add_dev_pack_create}" = "yes" ] && [ "${mali_graphics_choice}" = "build" ] # case of both desk- and dev-packages already downloaded into the /var/cache dir
 then
-	fn_my_echo "Compress choice 2."
+	fn_my_echo "Compress choice 2. Desktop and dev packages together (including additional packages)."
 	fn_my_echo "Trying to create cache archive for dev-packages (includes desktop-packages!)."
-	cd ${output_dir}/mnt_debootstrap/var/cache/apt/
+	cd ${qemu_mnt_dir}/var/cache/apt/
 	tar_all compress "${output_dir_base}/cache/additional_dev_packages.tar.gz" .
 	cd ${output_dir}
 fi
 
 if [ "${add_desk_pack_create}" = "yes" ] && [ "${mali_graphics_choice}" = "copy" ] # case of only desk-packages already downloaded into the /var/cache dir
 then
-	fn_my_echo "Compress choice 3."
+	fn_my_echo "Compress choice 3. Desktop packages, including additional packages."
 	fn_my_echo "Trying to create cache archive for desktop-packages."
-	cd ${output_dir}/mnt_debootstrap/var/cache/apt/
+	cd ${qemu_mnt_dir}/var/cache/apt/
 	tar_all compress "${output_dir_base}/cache/additional_desktop_packages.tar.gz" .
 	cd ${output_dir}
-#else
-#	fn_my_echo "Can't create cache archive for this scenario."
 fi
 
 sleep 5
@@ -476,11 +536,11 @@ get_n_check_file "${qemu_kernel_pkg}" "qemu_kernel" "${output_dir}/tmp"
 
 tar_all extract "${output_dir}/tmp/${qemu_kernel_pkg##*/}" "${output_dir}/qemu-kernel"
 sleep 3
-tar_all extract "${output_dir}/tmp/${std_kernel_pkg##*/}" "${output_dir}/mnt_debootstrap"
+tar_all extract "${output_dir}/tmp/${std_kernel_pkg##*/}" "${qemu_mnt_dir}"
 
 if [ -d ${output_dir}/qemu-kernel/lib/ ]
 then
-	cp -ar ${output_dir}/qemu-kernel/lib/ ${output_dir}/mnt_debootstrap  # copy the qemu kernel modules intot the rootfs
+	cp -ar ${output_dir}/qemu-kernel/lib/ ${qemu_mnt_dir}  # copy the qemu kernel modules intot the rootfs
 fi
 
 if [ "${use_zram}" = "yes" ]
@@ -518,15 +578,20 @@ then
 	chmod 777 /dev/mali
 fi
 
+chmod 777 /dev/disp
+chmod 777 /dev/cedar_dev
+
+
 echo 0 > /sys/class/graphics/fb0/blank # disable framebuffer blanking
 echo 0 > /sys/module/8192cu/parameters/rtw_power_mgnt # disable wlan power management
+echo ondemand > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor # set cpufreq governor to 'ondemand'
 
 exit 0
 END
 chmod +x /etc/rc.local
-exit 0" > ${output_dir}/mnt_debootstrap/zram_setup.sh
-#cp ${output_dir}/mnt_debootstrap/zram_setup.sh ${output_dir}/mnt_debootstrap/zram_setup.sh.bak
-chmod +x ${output_dir}/mnt_debootstrap/zram_setup.sh
+exit 0" > ${qemu_mnt_dir}/zram_setup.sh
+#cp ${qemu_mnt_dir}/zram_setup.sh ${qemu_mnt_dir}/zram_setup.sh.bak
+chmod +x ${qemu_mnt_dir}/zram_setup.sh
 fi
 
 git_branch_name="${mali_xserver_2d_git##*.git -b }"
@@ -553,6 +618,21 @@ elif [ \"${mali_graphics_choice}\" = \"build\" ]
 then
 	apt_get_helper \"install\" \"${additional_desktop_packages}\"
 	apt_get_helper \"install\" \"${additional_dev_packages}\"
+fi
+
+if [ \"${compile_accel_vlc}\" = \"yes\" ]
+then
+	apt-get remove -y vlc vlc-data
+	apt_get_helper \"dep_install\" \"vlc\"
+	apt-get remove -y lua5.2
+fi
+
+if [ \"${compile_accel_xbmc}\" = \"yes\" ]
+then
+	apt-get remove -y xbmc xbmc-data xbmc-bin
+	apt_get_helper \"dep_install\" \"xbmc\"
+	apt_get_helper \"install\" \"${xbmc_prereq}\"
+	apt-get remove -y ${xbmc_nogos}
 fi
 
 #apt-get autoremove
@@ -666,7 +746,7 @@ END
 			echo \"Xserver mali400 driver build process completed successfully!\" >> /mali_drv_compile.txt
 		fi
 		
-		cat <<END > /etc/rc.local 2>>/deboostrap_stg2_errors.txt
+		cat <<END > /etc/rc.local 2>>/debootstrap_stg2_errors.txt
 #!/bin/sh -e
 #
 # rc.local
@@ -697,6 +777,7 @@ fi
 
 echo 0 > /sys/class/graphics/fb0/blank # disable framebuffer blanking
 echo 0 > /sys/module/8192cu/parameters/rtw_power_mgnt # disable wlan power management
+echo ondemand > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor # set cpufreq governor to 'ondemand'
 
 exit 0
 END
@@ -708,6 +789,49 @@ else
 	echo \"No valid option. Only copy|build|none are accepted. Doing nothing.\"
 fi
 
+
+if [ \"${compile_accel_vlc}\" = \"yes\" ]
+then
+	if [ -d /root/libcedarx ]
+	then
+		cd /root/libcedarx 2>>/vlc_compile_errors.txt
+		./autogen.sh 2>>/vlc_compile_errors.txt && echo \"Successfully ran libcedarx autogen.sh.\" >>/vlc_compile.txt
+		./configure --host=arm-linux-gnueabihf --prefix=/usr 2>>/vlc_compile_errors.txt && echo \"Successfully ran libcedarx configure.\" >>/vlc_compile.txt
+		make 2>>/vlc_compile_errors.txt && echo \"Successfully ran libcedarx make.\" >>/vlc_compile.txt
+		make install 2>>/vlc_compile_errors.txt && echo \"Successfully ran libcedarx make install.\" >>/vlc_compile.txt
+		if [ -d /root/vlc ]
+		then
+			cd /root/vlc 2>>/vlc_compile_errors.txt 
+			./bootstrap 2>>/vlc_compile_errors.txt && echo \"Successfully ran vlc bootstrap.\" >>/vlc_compile.txt
+			./configure --host=arm-linux-gnueabihf --prefix=/usr --enable-cedar 2>>/vlc_compile_errors.txt && echo \"Successfully ran vlc configure.\" >>/vlc_compile.txt
+			make 2>>/vlc_compile_errors.txt && echo \"Successfully ran vlc make.\" >>/vlc_compile.txt
+			make install 2>>/vlc_compile_errors.txt && echo \"Successfully ran vlc make install.\" >>/vlc_compile.txt
+		else
+			echo \"ERROR! Directory '/root/vlc' not found! Please check!\" >>/vlc_compile_errors.txt
+		fi
+	else
+		echo \"ERROR! Directory '/root/libcedarx' not found! Please check!\" >>/vlc_compile_errors.txt
+	fi
+fi
+if [ \"${compile_accel_xbmc}\" = \"yes\" ]
+then
+	if [ -d /root/xbmca10/tools/a10/depends ]
+	then
+		cd /root/xbmca10/tools/a10/depends 2>>/xbmc_compile_errors.txt
+		sed -i 's<mkdir<mkdir -p<g' /root/xbmca10/tools/a10/depends/Makefile 2>>/xbmc_compile_errors.txt
+		mkdir -p /opt/a10hacking/xbmctmp/tarballs 2>>/xbmc_compile_errors.txt
+		make 2>>/xbmc_compile_errors.txt && echo \"Successfully ran xbmc-depends make.\" >>/xbmc_compile.txt
+		echo -e \"\nA10HWR=1\" >> /etc/environment 2>>/xbmc_compile_errors.txt
+		echo -e \"\nexport A10HWR=1\" >> /home/${username}/.bashrc 2>>/xbmc_compile_errors.txt
+		make -C xbmc 2>>/xbmc_compile_errors.txt && echo \"Successfully ran xbmc make.\" >>/xbmc_compile.txt
+		cd /root/xbmca10/ 2>>/xbmc_compile_errors.txt
+		make install 2>>/xbmc_compile_errors.txt && echo \"Successfully ran xbmc make install.\" >>/xbmc_compile.txt
+	else
+		echo \"ERROR! Directory '/root/xbmca10' not found! Please check!\" >>/xbmc_compile_errors.txt
+	fi
+fi
+
+
 ldconfig -v
 
 if [ -e /apt_helper.sh ]
@@ -715,79 +839,122 @@ then
 	rm /apt_helper.sh
 fi
 
+sed -i 's<#/dev/mmcblk0p3</dev/mmcblk0p3<g' /etc/fstab
+sed -i 's</swapfile<#&<g' /etc/fstab
+sed -i 's<#T0:2345:respawn:/sbin/mingetty<T0:2345:respawn:/sbin/mingetty<g' /etc/inittab
+
+df -ah >> /disk_usage.txt
+
 reboot 2>>/post_debootstrap_errors.txt
-exit 0" > ${output_dir}/mnt_debootstrap/post_debootstrap_setup.sh
-chmod +x ${output_dir}/mnt_debootstrap/post_debootstrap_setup.sh
+exit 0" > ${qemu_mnt_dir}/post_debootstrap_setup.sh
+chmod +x ${qemu_mnt_dir}/post_debootstrap_setup.sh
 
 if [ "${mali_graphics_opengl}" = "yes" ]
 then
 	get_n_check_file "${mali_opengl_bin}" "mali_opengl_driver" "${output_dir}/tmp"
-	tar_all extract "${output_dir}/tmp/${mali_opengl_bin##*/}" "${output_dir}/mnt_debootstrap"
+	tar_all extract "${output_dir}/tmp/${mali_opengl_bin##*/}" "${qemu_mnt_dir}"
 fi
 
 if [ "${mali_graphics_choice}" = "copy" ]
 then
 	get_n_check_file "${mali_2d_bin}" "mali_2d_driver" "${output_dir}/tmp"
-	tar_all extract "${output_dir}/tmp/${mali_2d_bin##*/}" "${output_dir}/mnt_debootstrap"
+	tar_all extract "${output_dir}/tmp/${mali_2d_bin##*/}" "${qemu_mnt_dir}"
 elif [ "${mali_graphics_choice}" = "build" ]
 then
-	mkdir -p ${output_dir}/mnt_debootstrap/root/mali_2d_build && fn_my_echo "Directory for graphics driver build successfully created."
-	get_n_check_file "${mali_xserver_2d_git}" "xf86-video-mali" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
-	get_n_check_file "${mali_2d_libdri2_git}" "libdri2" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
-	#get_n_check_file "${mali_2d_libump_git}" "libump" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
-	get_n_check_file "${mali_2d_mali_git}" "mali" "${output_dir}/mnt_debootstrap/root/mali_2d_build"
-	cd ${output_dir}/mnt_debootstrap/root/mali_2d_build/sunxi-mali
+	mkdir -p ${qemu_mnt_dir}/root/mali_2d_build && fn_my_echo "Directory for graphics driver build successfully created."
+	get_n_check_file "${mali_xserver_2d_git}" "xf86-video-mali" "${qemu_mnt_dir}/root/mali_2d_build"
+	get_n_check_file "${mali_2d_libdri2_git}" "libdri2" "${qemu_mnt_dir}/root/mali_2d_build"
+	get_n_check_file "${mali_2d_mali_git}" "mali" "${qemu_mnt_dir}/root/mali_2d_build"
+	cd ${qemu_mnt_dir}/root/mali_2d_build/sunxi-mali
 	git submodule init
 	git submodule update
-	get_n_check_file "${mali_2d_proprietary_git}" "mali-proprietary" "${output_dir}/mnt_debootstrap/root/mali_2d_build/sunxi-mali/lib/"
+	get_n_check_file "${mali_2d_proprietary_git}" "mali-proprietary" "${qemu_mnt_dir}/root/mali_2d_build/sunxi-mali/lib/"
 fi
 
-
-if [ "${i2c_hwclock}" = "yes" ]
+if [ "${compile_accel_vlc}" = "yes" ]
 then
-	fn_my_echo "Setting up a script for being able to use the i2c-connected RTC (hardware clock)."
-	echo "#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          i2c-hwclock
-# Required-Start:    checkroot
-# Required-Stop:     $local_fs
-# Default-Start:     S
-# Default-Stop:      0 6
-### END INIT INFO
-
-case \"\$1\" in
-	start)
-	if [ ! -e /dev/rtc0 ]
+	if [ "${use_cache}" = "yes" ]
 	then
-		mknod /dev/rtc0 c 254 0
-	else
-		if [ ! -e /dev/rtc ]
+		if [ -d "${output_dir_base}/cache/" ]
 		then
-			ln -s /dev/rtc0 /dev/rtc
+			### libcedarx first
+			if [ -e "${output_dir_base}/cache/${libcedarx_git_tarball}" ]
+			then
+				fn_my_echo "Using libcedarx_git tarball '${output_dir_base}/cache/${libcedarx_git_tarball}' from cache."
+				tar_all extract "${output_dir_base}/cache/${libcedarx_git_tarball}" "${qemu_mnt_dir}/root/"
+			else
+				fn_my_echo "No libcedarx git tarball found in cache. Creating one now!"
+				get_n_check_file "${libcedarx_git}" "libcedarx" "${qemu_mnt_dir}/root/"
+				if [ "$?" = "0" ]
+				then
+					cd ${qemu_mnt_dir}/root/
+					tar_all compress "${output_dir_base}/cache/${libcedarx_git_tarball}" ./libcedarx
+				else
+					fn_my_echo "ERROR! Something seems to have gone wrong while trying to get 'libcedarx' via git."
+				fi
+			fi
+			
+			### then VLC
+			if [ -e "${output_dir_base}/cache/${vlc_git_tarball}" ]
+			then
+				fn_my_echo "Using vlc_git tarball '${output_dir_base}/cache/${vlc_git_tarball}' from cache."
+				tar_all extract "${output_dir_base}/cache/${vlc_git_tarball}" "${qemu_mnt_dir}/root/"
+			else
+				fn_my_echo "No vlc_git tarball found in cache. Creating one now!"
+				get_n_check_file "${vlc_git}" "vlc" "${qemu_mnt_dir}/root/"
+				if [ "$?" = "0" ]
+				then
+					cd ${qemu_mnt_dir}/root/
+					tar_all compress "${output_dir_base}/cache/${vlc_git_tarball}" ./vlc
+				else
+					fn_my_echo "ERROR! Something seems to have gone wrong while trying to get 'vlc' via git."
+				fi
+			fi
+		else
+			fn_my_echo "ERROR! Cache directory '${output_dir_base}/cache/' does not seem to exist. Please check
+Exiting now!"
+			exit 98
 		fi
+	else
+		fn_my_echo "Not using cache, according to the settings. Thus running git clone without creating a tarball."
+		get_n_check_file "${libcedarx_git}" "libcedarx" "${qemu_mnt_dir}/root/"
+		get_n_check_file "${vlc_git}" "vlc" "${qemu_mnt_dir}/root/"
 	fi
-	modprobe i2c-pnx
-	modprobe ${rtc_kernel_module_name}
-	echo ${i2c_hwclock_name} ${i2c_hwclock_addr} > /sys/bus/i2c/devices/i2c-1/new_device
-	/sbin/hwclock -s && echo \"Time successfully set from the RTC!\"
-	;;
-	stop|restart|reload|force-reload)
-	#echo ${i2c_hwclock_name} ${i2c_hwclock_addr} > /sys/bus/i2c/devices/i2c-1/delete_device
-	#modprobe -r rtc-ds1307
-	#modprobe -r i2c-pnx
-	;;
-	*)
-	    echo \"Usage: i2c_hwclock.sh {start|stop}\"
-	    echo \"       start sets up kernel i2c-system for using the i2c-connected hardware (RTC) clock\"
-	    echo \"       stop unloads the driver module for the hardware (RTC) clock\"
-	    return 1
-	;;
-    esac
-exit 0" > ${output_dir}/mnt_debootstrap/etc/init.d/i2c_hwclock.sh
-	chmod +x ${output_dir}/mnt_debootstrap/etc/init.d/i2c_hwclock.sh
-else
-	fn_my_echo "No RTC (hardware clock) setup. Continueing..."
 fi
+
+if [ "${compile_accel_xbmc}" = "yes" ]
+then
+	if [ "${use_cache}" = "yes" ]
+	then
+		if [ -d "${output_dir_base}/cache/" ]
+		then
+			### XBMC
+			if [ -e "${output_dir_base}/cache/${xbmc_git_tarball}" ]
+			then
+				fn_my_echo "Using xbmc_git tarball '${output_dir_base}/cache/${xbmc_git_tarball}' from cache."
+				tar_all extract "${output_dir_base}/cache/${xbmc_git_tarball}" "${qemu_mnt_dir}/root/"
+			else
+				fn_my_echo "No xbmc git tarball found in cache. Creating one now!"
+				get_n_check_file "${xbmc_git}" "xbmc" "${qemu_mnt_dir}/root/"
+				if [ "$?" = "0" ]
+				then
+					cd ${qemu_mnt_dir}/root/
+					tar_all compress "${output_dir_base}/cache/${xbmc_git_tarball}" ./xbmca10
+				else
+					fn_my_echo "ERROR! Something seems to have gone wrong while trying to get 'xbmc' via git."
+				fi
+			fi
+		else
+			fn_my_echo "ERROR! Cache directory '${output_dir_base}/cache/' does not seem to exist. Please check
+Exiting now!"
+			exit 99
+		fi
+	else
+		fn_my_echo "Not using cache, according to the settings. Thus running git clone without creating a tarball."
+		get_n_check_file "${xbmc_git}" "xbmc" "${qemu_mnt_dir}/root/"
+	fi
+fi
+
 
 sleep 3
 
@@ -802,11 +969,13 @@ fi
 
 sleep 5
 
-mount |grep "${output_dir}/mnt_debootstrap" > /dev/null
+mount |grep "${qemu_mnt_dir}" > /dev/null
 if [ ! "$?" = "0" ]
 then
 	fn_my_echo "Starting the qemu environment now!"
-	qemu-system-arm -M versatilepb -cpu cortex-a8 -no-reboot -kernel ${output_dir}/qemu-kernel/vmlinuz -hda ${output_dir}/${output_filename}.img -m 256 -append "root=/dev/sda rootfstype=ext4 mem=256M devtmpfs.mount=0 rw ip=dhcp" 2>qemu_error_log.txt # TODO: Image name
+	##qemu-system-arm -M versatilepb -cpu cortex-a8 -no-reboot -kernel ${output_dir}/qemu-kernel/vmlinuz -hda ${output_dir}/${output_filename}.img -m 256 -append "root=/dev/sda rootfstype=ext4 mem=256M devtmpfs.mount=0 rw ip=dhcp" 2>qemu_error_log.txt # TODO: Image name
+	qemu-system-arm -M realview-pb-a8 -cpu cortex-a8 -no-reboot -serial stdio -kernel ${output_dir}/qemu-kernel/zImage -drive file=${output_dir}/${output_filename}.img,if=sd,cache=writeback -m 512 -append "root=/dev/mmcblk0 rw rootfstype=ext4 mem=512M devtmpfs.mount=0 ip=dhcp" 2>qemu_error_log.txt # TODO: Image name
+
 else
 	fn_my_echo "ERROR! Filesystem is still mounted. Can't run qemu!"
 	exit 23
@@ -840,11 +1009,11 @@ else
 	exit 25
 fi
 
-mount ${output_dir}/${output_filename}.img ${output_dir}/mnt_debootstrap -o loop
+mount ${output_dir}/${output_filename}.img ${qemu_mnt_dir} -o loop
 if [ "$?" = "0" ]
 then
-	rm -r ${output_dir}/mnt_debootstrap/lib/modules/2.6.33-gnublin-qemu-*/
-	cd ${output_dir}/mnt_debootstrap
+	rm -r ${qemu_mnt_dir}/lib/modules/2.6.33-gnublin-qemu-*/
+	cd ${qemu_mnt_dir}
 	if [ "${tar_format}" = "bz2" ]
 	then
 		tar_all compress "${output_dir}/${output_filename}.tar.${tar_format}" .
@@ -864,22 +1033,22 @@ else
 	exit 26
 fi
 
-umount ${output_dir}/mnt_debootstrap
+umount ${qemu_mnt_dir}
 sleep 10
-mount | grep ${output_dir}/mnt_debootstrap > /dev/null
+mount | grep ${qemu_mnt_dir} > /dev/null
 if [ ! "$?" = "0" ] && [ "${clean_tmp_files}" = "yes" ]
 then
-	rm -r ${output_dir}/mnt_debootstrap
+	rm -r ${qemu_mnt_dir}
 	rm -r ${output_dir}/qemu-kernel
 	rm ${output_dir}/${output_filename}.img
 elif [ "$?" = "0" ] && [ "${clean_tmp_files}" = "yes" ]
 then
-	fn_my_echo "Directory '${output_dir}/mnt_debootstrap' is still mounted, so it can't be removed. Exiting now!"
+	fn_my_echo "Directory '${qemu_mnt_dir}' is still mounted, so it can't be removed. Exiting now!"
 	regular_cleanup
 	exit 27
 elif [ "$?" = "0" ] && [ "${clean_tmp_files}" = "no" ]
 then
-	fn_my_echo "Directory '${output_dir}/mnt_debootstrap' is still mounted, please check. Exiting now!"
+	fn_my_echo "Directory '${qemu_mnt_dir}' is still mounted, please check. Exiting now!"
 	regular_cleanup
 	exit 28
 fi
@@ -1093,14 +1262,14 @@ if [ "$1" = "compress" ]
 then
 	if [ -d "${2%/*}"  ] && [ -e "${3}" ]
 	then
-		if [ "${2:(-8)}" = ".tar.bz2" ]
+		if [ "${2:(-8)}" = ".tar.bz2" ] || [ "${2:(-5)}" = ".tbz2" ]
 		then
 			tar -cpjvf "${2}" "${3}"
-		elif [ "${2:(-7)}" = ".tar.gz" ]
+		elif [ "${2:(-7)}" = ".tar.gz" ] || [ "${2:(-4)}" = ".tgz" ]
 		then
 			tar -cpzvf "${2}" "${3}"
 		else
-			fn_my_echo "ERROR! Created files can only be of type '.tar.gz', or '.tar.bz2'! Exiting now!"
+			fn_my_echo "ERROR! Created files can only be of type '.tar.gz', '.tgz', '.tbz2', or '.tar.bz2'! Exiting now!"
 			regular_cleanup
 			exit 37
 		fi
@@ -1113,10 +1282,10 @@ elif [ "$1" = "extract" ]
 then
 	if [ -e "${2}"  ] && [ -d "${3}" ]
 	then
-		if [ "${2:(-8)}" = ".tar.bz2" ]
+		if [ "${2:(-8)}" = ".tar.bz2" ] || [ "${2:(-5)}" = ".tbz2" ]
 		then
 			tar -xpjvf "${2}" -C "${3}"
-		elif [ "${2:(-7)}" = ".tar.gz"  ]
+		elif [ "${2:(-7)}" = ".tar.gz" ] || [ "${2:(-4)}" = ".tgz" ]
 		then
 			tar -xpzvf "${2}" -C "${3}"
 		else
@@ -1148,12 +1317,17 @@ then
 	if [ "$?" = "0"  ]
 	then
 		fn_my_echo "Virtual Image still mounted. Trying to umount now!"
-		umount ${output_dir}/mnt_debootstrap/sys > /dev/null
-		umount ${output_dir}/mnt_debootstrap/dev/pts > /dev/null
-		umount ${output_dir}/mnt_debootstrap/proc > /dev/null
+		umount ${qemu_mnt_dir}/proc > /dev/null
+		sleep 3
+		umount ${qemu_mnt_dir}/dev/pts > /dev/null
+		sleep 3
+		umount ${qemu_mnt_dir}/dev/ > /dev/null
+		sleep 3
+		umount ${qemu_mnt_dir}/sys > /dev/null
+		sleep 3
 	fi
 
-	mount | egrep '(${output_dir}/mnt_debootstrap/sys|${output_dir}/mnt_debootstrap/proc|${output_dir}/mnt_debootstrap/dev/pts)' > /dev/null
+	mount | egrep '(${qemu_mnt_dir}/sys|${qemu_mnt_dir}/proc|${qemu_mnt_dir}/dev/pts)' > /dev/null
 	if [ "$?" = "0"  ]
 	then
 		fn_my_echo "ERROR! Something went wrong. All subdirectories of '${output_dir}' should have been unmounted, but are not."
@@ -1166,10 +1340,16 @@ then
 	if [ "$?" = "0"  ]
 	then
 		fn_my_echo "Virtual Image still mounted. Trying to umount now!"
-		umount ${output_dir}/mnt_debootstrap/sys > /dev/null
-		umount ${output_dir}/mnt_debootstrap/dev/pts > /dev/null
-		umount ${output_dir}/mnt_debootstrap/proc > /dev/null
-		umount ${output_dir}/mnt_debootstrap/ > /dev/null
+		umount ${qemu_mnt_dir}/proc > /dev/null
+		sleep 3
+		umount ${qemu_mnt_dir}/dev/pts > /dev/null
+		sleep 3
+		umount ${qemu_mnt_dir}/dev/ > /dev/null
+		sleep 3
+		umount ${qemu_mnt_dir}/sys > /dev/null
+		sleep 3
+		umount ${qemu_mnt_dir}/ > /dev/null
+		sleep 3
 	fi
 
 	mount | grep "${output_dir}" > /dev/null
@@ -1237,61 +1417,44 @@ One or more of these appear to be empty. Exiting now!"
 	exit 42
 fi
 
-if [ "${file_path:0:7}" = "http://" ] || [ "${file_path:0:8}" = "https://" ] || [ "${file_path:0:6}" = "ftp://" ] || [ "${file_path:0:6}" = "git://" ] 
+if [ "${file_path:0:7}" = "http://" ] || [ "${file_path:0:8}" = "https://" ] || [ "${file_path:0:6}" = "ftp://" ] || [ "${file_path:0:6}" = "git://" ] || [ "${file_path:0:3}" = "-b " ] 
 then
 	if [ -d ${output_path} ]
 	then
 		cd ${output_path}
-		if [ "${file_name:(-4):4}" = ".git" ]
+		if [ "${1:(-4):4}" = ".git" ]
 		then
-			fn_my_echo "Trying to clone repository ${short_description} from address '${file_path}/${file_name}', now."
-			git clone ${file_path}/${file_name}
+			fn_my_echo "Trying to clone repository ${short_description} from address '${1}', now."
+			git clone ${1}
 			if [ "$?" = "0" ]
 				then
-					fn_my_echo "'${short_description}' repository successfully cloned from address '${file_path}/${file_name}'."
+					fn_my_echo "'${short_description}' repository successfully cloned from address '${1}'."
 			else
-					fn_my_echo "ERROR: Repository '${file_path}/${file_name}' could not be cloned.
-		Exiting now!"
+					fn_my_echo "ERROR: Repository '${1}' could not be cloned.
+Exiting now!"
 				regular_cleanup
 				exit 42
 			fi
 		else
-			echo "${file_name}" |grep ".git -b "
+			fn_my_echo "Trying to download ${short_description} from address '${file_path}/${file_name}', now."
+			wget -q --spider ${file_path}/${file_name}
 			if [ "$?" = "0" ]
 			then
-				branch_name="${file_name##*.git -b }"
-				git_repo="${file_path}/${file_name% -b*}"
-				git clone -b ${branch_name} ${git_repo}
+				wget -t 3 ${file_path}/${file_name}
 				if [ "$?" = "0" ]
 				then
-					fn_my_echo "'${short_description}' repository, branch '${branch_name}', successfully cloned from address '${file_path}/${file_name}'."
+					fn_my_echo "'${short_description}' successfully downloaded from address '${file_path}/${file_name}'."
 				else
-					fn_my_echo "ERROR: Repository '${file_path}/${file_name}', branch '${branch_name}' could not be cloned.
-		Exiting now!"
-				regular_cleanup
-				exit 43
-				fi
-			else  
-				fn_my_echo "Trying to download ${short_description} from address '${file_path}/${file_name}', now."
-				wget -q --spider ${file_path}/${file_name}
-				if [ "$?" = "0" ]
-				then
-					wget -t 3 ${file_path}/${file_name}
-					if [ "$?" = "0" ]
-					then
-						fn_my_echo "'${short_description}' successfully downloaded from address '${file_path}/${file_name}'."
-					else
-						fn_my_echo "ERROR: File '${file_path}/${file_name}' could not be downloaded.
-			Exiting now!"
+					fn_my_echo "ERROR: File '${file_path}/${file_name}' could not be downloaded.
+Exiting now!"
 					regular_cleanup
 					exit 43
-					fi
-				else
-					fn_my_echo "ERROR: '${file_path}/${file_name}' does not seem to be a valid internet address. Please check!
-			Exiting now!"
-					regular_cleanup
-					exit 44
 				fi
+			else
+				fn_my_echo "ERROR: '${file_path}/${file_name}' does not seem to be a valid internet address. Please check!
+Exiting now!"
+				regular_cleanup
+				exit 44
 			fi
 		fi
 	else
@@ -1330,7 +1493,7 @@ apt_choice=${1}
 if [ "${apt_choice}" = "write_script" ]
 then
 	fn_my_echo "Writing the 'apt_helper.sh' helper script for the apt install processes."
-	cat<<END>${output_dir}/mnt_debootstrap/apt_helper.sh
+	cat<<END>${qemu_mnt_dir}/apt_helper.sh
 #!/bin/bash
 # helper script to install a list of packages, even if one or more errors occur
 
@@ -1342,10 +1505,16 @@ update_choice=\${3}
 
 	if [ "\${apt_choice}" = "download" ]
 	then
-		apt-get install -y -d \${2} 2>/apt_get_errors.txt
+		apt-get install -y -d \${2} 2>>/apt_get_errors.txt
 	elif [ "\${apt_choice}" = "install" ]
 	then
-		apt-get install -y \${2} 2>/apt_get_errors.txt
+		apt-get install -y \${2} 2>>/apt_get_errors.txt
+	elif [ "\${apt_choice}" = "dep_download" ]
+	then
+		apt-get build-dep -y -d \${2} 2>>/apt_get_errors.txt
+	elif [ "\${apt_choice}" = "dep_install" ]
+	then
+		apt-get build-dep -y \${2} 2>>/apt_get_errors.txt
 	fi
 	if [ "\$?" = "0" ]
 	then
@@ -1362,10 +1531,16 @@ update_choice=\${3}
 			fi
 			if [ "\${apt_choice}" = "download" ]
 			then
-				apt-get install -y -d \${1} 2>/apt_get_errors.txt
+				apt-get install -y -d \${1} 2>>/apt_get_errors.txt
 			elif [ "\${apt_choice}" = "install" ]
 			then
-				apt-get install -y \${1} 2>/apt_get_errors.txt
+				apt-get install -y \${1} 2>>/apt_get_errors.txt
+			elif [ "\${apt_choice}" = "dep_download" ]
+			then
+				apt-get build-dep -y -d \${1} 2>>/apt_get_errors.txt
+			elif [ "\${apt_choice}" = "dep_install" ]
+			then
+				apt-get build_dep -y \${1} 2>>/apt_get_errors.txt
 			fi
 			if [ "\$?" = "0" ]
 			then
@@ -1386,10 +1561,16 @@ then
 
 	if [ "${apt_choice}" = "download" ]
 	then
-		apt-get install -y -d ${2} 2>/apt_get_errors.txt
+		apt-get install -y -d ${2} 2>>${output_dir}/apt_get_errors.txt
 	elif [ "${apt_choice}" = "install" ]
 	then
-		apt-get install -y ${2} 2>/apt_get_errors.txt
+		apt-get install -y ${2} 2>>${output_dir}/apt_get_errors.txt
+	elif [ "\${apt_choice}" = "dep_download" ]
+	then
+		apt-get build-dep -y -d \${2} 2>>${output_dir}/apt_get_errors.txt
+	elif [ "\${apt_choice}" = "dep_install" ]
+	then
+		apt-get build-dep -y \${2} 2>>${output_dir}/apt_get_errors.txt
 	fi
 	if [ "$?" = "0" ]
 	then
@@ -1406,10 +1587,16 @@ then
 			fi
 			if [ "${apt_choice}" = "download" ]
 			then
-				apt-get install -y -d ${1} 2>/apt_get_errors.txt
+				apt-get install -y -d ${1} 2>>${output_dir}/apt_get_errors.txt
 			elif [ "${apt_choice}" = "install" ]
 			then
-				apt-get install -y ${1} 2>/apt_get_errors.txt
+				apt-get install -y ${1} 2>>${output_dir}/apt_get_errors.txt
+			elif [ "\${apt_choice}" = "dep_download" ]
+			then
+				apt-get build-dep -y -d \${1} 2>>${output_dir}/apt_get_errors.txt
+			elif [ "\${apt_choice}" = "dep_install" ]
+			then
+				apt-get build_dep -y \${1} 2>>${output_dir}/apt_get_errors.txt
 			fi
 			if [ "$?" = "0" ]
 			then
@@ -1433,9 +1620,9 @@ fi
 # Description: Helper function to clean up in case of an interrupt
 int_cleanup() # special treatment for script abort through interrupt ('ctrl-c'  keypress, etc.)
 {
-	fn_my_echo "Build process interrrupted. Now trying to clean up!"
+	fn_my_echo "Build process interrupted. Now trying to clean up!"
 	umount_img all 2>/dev/null
-	rm -r ${output_dir}/mnt_debootstrap 2>/dev/null
+	rm -r ${qemu_mnt_dir} 2>/dev/null
 	rm -r ${output_dir}/tmp 2>/dev/null
 	rm -r ${output_dir}/sd-card 2>/dev/null
 	exit 99
@@ -1445,7 +1632,7 @@ int_cleanup() # special treatment for script abort through interrupt ('ctrl-c'  
 regular_cleanup() # cleanup for all other error situations
 {
 	umount_img all 2>/dev/null
-	rm -r ${output_dir}/mnt_debootstrap 2>/dev/null
+	rm -r ${qemu_mnt_dir} 2>/dev/null
 	rm -r ${output_dir}/tmp 2>/dev/null
 	rm -r ${output_dir}/sd-card 2>/dev/null
 }
