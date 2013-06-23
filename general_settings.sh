@@ -46,7 +46,7 @@ bootloader_script="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/bootloader/
 
 qemu_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/3.2.33-cortexa8-qemu-1.0_1370106074.tar.bz2" # qemu kernel file name
 
-std_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/3.0.62/3.0.62-hsa-1.0_1364762093.tar.bz2"
+std_kernel_pkg="http://www.hs-augsburg.de/~ingmar_k/Allwinner_A10/kernels/3.0.62-hsa-1.0_1364762093.tar.bz2"
 
 tar_format="bz2" # bz2(=bzip2) or gz(=gzip)
 
