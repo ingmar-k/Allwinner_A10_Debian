@@ -1,4 +1,4 @@
-Hackberry_Debian
+Allwinner A10 Debian
 ==============
 
 Scripts to automatically create a Debian rootfs image and/or a complete, bootable SD-card.
@@ -10,8 +10,20 @@ This program (including documentation) is distributed in the hope that it will b
 warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License version 3 (GPLv3; http://www.gnu.org/licenses/gpl-3.0.html )
 for more details.
 
+<br>
+<h2>ATTENTION:</h2>
+<ol>
+<li>A <b>SERIAL CONNECTION</b> to the Allwinner A10 device is <b>HIGHLY RECOMMENDED</b> for this procedure.<br><i><b>Debugging is more or less impossible without it!</b></i></li><br>
 
-README: Hackberry Debian scripts
+<li><b>Most of the descriptions below assume that you are able to connect to the Allwinner A10 device via serial connection!!!</b></li><br>
+
+<li>A <b>working INTERNET CONNECTION</b> is <b>mandatory</b> and <b>must be available RIGHT AWAY</b> when running the script! So please make sure to be connected <b>before starting the script.</b></li>
+</b></ol>
+<br>
+<br>
+
+
+README: Allwinner A10 Debian scripts
 ------------------------------
 
 
@@ -27,7 +39,7 @@ Overview:
 3. Settings
 4. Running the script (no parameters)
 5. Running the script with call parameters (special functions)
-6. Log-Files and further information 
+6. DEBUGGING and Log-Files
 7. Logging In
 
 
@@ -37,9 +49,11 @@ Overview:
 ---------------------------
 
 You need a machine with at least Debian Squeeze/Stable (better Wheezy/Testing), or Ubuntu 11.04. (or better newer) . Default installs! If you did a minimal install of something similar, you will probably have to install a few extra packages, before being able to run the script.
-Enough disk space for the build process (~4GB free space) and maybe 512MB RAM. Internet connection is mandatory for this script (on the host machine, not on the Hackberry).
+Enough disk space for the build process (~4GB free space) and maybe 512MB RAM. Internet connection is mandatory for this script (on the host machine, not on the Allwinner A10 device).
 No internet connection equals no build process!
 You will need **root priviliges**! Either through the **sudo** package and the corresponding sudoers file, or by running the script as **root**.
+<br><br>**HINT:**
+<br>Works perfectly fine in a Virtual Machine, too. Ran dozens of builds in Virtualbox with Ubuntu and/or Debian installed there.
 
 
 
@@ -72,7 +86,7 @@ Most of the settings are either self-explanatory, or already commented in the fi
 - **user_password**: Password for the user
 
 
-**All other settings are optional and CAN, but don't necessarily need to be changed!**
+**All other settings are optional and CAN, but don't necessarily need to be changed!** <-- Unless commented otherwise in the script code!
 
 **Note:**
 The variable ***"additional_packages"*** is just a list of packages that should be installed. So, browse the debian package list ( [http://packages.debian.org](http://packages.debian.org) ) and add the packages that you want to the list. These will then be included in the resulting rootfs, if nothing goes wrong.
@@ -97,7 +111,7 @@ Running the script in full mode, utilizing all functions, is as easy as doing th
 5) Running the script with call parameters (special functions)
 --------------------------------------------------------------
 
-The script now accepts two main call parameters.
+The script now accepts three main call parameters.
 These are **"build"**, **"install".** and **"clean"**.
 
 Descriptions:
@@ -126,8 +140,6 @@ As the script knows caching of apt-packages, it might sometimes be necessary to 
 
 **`sudo ./build_debian_system.sh --install http://www.tester.com/rootfs.tar.bz2`** will download the named rootfs-archive and create a bootable SD-card with it (bootloader as set per "general_settings.sh")
 
-**`sudo ./build_debian_system.sh --install http://www.tester.com/rootfs.tar.bz2 --bootloader http://www.tester.com/uboot.bin`** will download the named rootfs-archive and create a bootable SD-card with the specified bootloader
-
 **`sudo ./build_debian_system.sh --build`**  will run only the scripts build funtions to create a rootfs-archive according to your settings.
 
 **`sudo ./build_debian_system.sh --clean all`**  will delete both the files in the build and cache directories.
@@ -143,14 +155,20 @@ As the script knows caching of apt-packages, it might sometimes be necessary to 
 
 
 
-6) Log-Files and further information
+6) DEBUGGING and Log-Files
 ------------------------------------
 
-There are a number of log files that get created at run time. The main log file is located in the "output_dir"-folder.
-This log file includes all main points in the script. Some detail information gets logged elsewhere, but that can be seen in the script code.
+There are several log files that get created while running the script.
+The main one, <b><i>log.txt</b></i> can be found under <b><i>${output_dir}/log.txt</b></i>, where <b><i>${output_dir}</b></i> is a variable that you set in the file <b><i>general_settings.sh</b></i>.
+<p>
+Several other log and error-log files get created in the root directory of the target-rootfs (the root filesystem that the script creates). If you need to find an error, have a look there, too.
+If the script comes that far, you can find the files in the output-archive (hint: <b><i>${output_dir}/${output_filename}</b></i>, as set in <b><i>general_settings.sh</b></i> ) that the script creates.
 
-Another important file is the **installed_packages.txt** in the root folder of the compressed archive.
+<br>Another useful file is the **installed_packages.txt** in the root folder of the compressed archive.
 As the name suggests, this file contains a list (created by running dpkg -l) of all packages, included in that very rootfs.
+
+<br>If the error occurs before the creation of the output-archive, you might want to set the option <b><i>clean_tmp_files</b></i> in the <b><i>general_settings.sh</b></i> to <b><i>no</b></i>. This will cause the script to KEEP the temporary image file that is used for the rootfs creation. In order to debug you can then mount that very image file via loop, after the script failed. 
+<br><br>
 
 
 

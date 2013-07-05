@@ -1,5 +1,5 @@
 #!/bin/bash
-# Bash script that creates a Debian rootfs or even a complete bootable SD-Card for the Hackberry board
+# Bash script that creates a Debian rootfs or even a complete bootable SD-Card for a Allwinner A10 based board
 # Should run on current Debian or Ubuntu versions
 # Author: Ingmar Klein (ingmar.klein@hs-augsburg.de)
 # Created in scope of the Master project, winter semester 2012/2013 under the direction of Professor Nik Klever, at the University of Applied Sciences Augsburg.
@@ -53,30 +53,13 @@ then
 	
 elif [ \( "$1" = "--install" -o "$1" = "-i" \) -a ! -z "$2" ] # case of wanting to install a existing rootfs-image to sd-card
 then
-	if [ \( "$3" = "--bootloader" -o "$3" = "-bl" \) -a ! -z "$4" ] # case of additionally telling the script directly what bootloader binary to use
-	then
-		if [ -z "$4" ] # case of forgotten parameter for the bootloader
-		then
-			echo "You seem to have called the script with the '--install' AND additional '--bootloader 'parameter.
-'--bootloader' requires the location of the bootloader binary file, as an additional parameter.
-Please rerun the script accordingly.
-For example:
-sudo ./build_debian_system.sh install 'http://www.hs-augsburg.de/~ingmar_k/hackberry/rootfs_packages/debian_rootfs_hackberry.tar.bz2' --bootloader 'http://www.hs-augsburg.de/~ingmar_k/hackberry/bootloader/uboot.bin'
-"
-			exit 1
-		else # case of using a non-default bootloader binary
-			bootloader_bin_path=${4%/*}
-			bootloader_bin_name=${4##*/}
-		fi
-	fi
-
 	prep_output
-	fn_my_echo "Running the script in install-only mode!
+	fn_log_echo "Running the script in install-only mode!
 Just creating a complete, fully bootable sd-card."
 	param_1="install"
 	if [ "$2" = "default" ]
 	then
-		fn_my_echo "Using the default rootfs-package settings defined in 'general_settings.sh'."
+		fn_log_echo "Using the default rootfs-package settings defined in 'general_settings.sh'."
 		rootfs_package=${default_rootfs_package}
 	else 
 		rootfs_package_path=${2%/*}
@@ -92,7 +75,7 @@ Just creating a complete, fully bootable sd-card."
 		tar_format="gz"
 		output_filename="${rootfs_package_name%.tar.gz}"
 	else
-		fn_my_echo "The variable rootfs_package_name seems to point to a file that is neither a '.tar.bz2' nor a '.tar.gz' package.
+		fn_log_echo "The variable rootfs_package_name seems to point to a file that is neither a '.tar.bz2' nor a '.tar.gz' package.
 Please check! Exiting now."
 		exit 2
 	fi
